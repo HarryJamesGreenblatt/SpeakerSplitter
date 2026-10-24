@@ -1,0 +1,12 @@
+<Project>
+
+  <PropertyGroup>
+    <!-- WASAPI is Windows-only, so every project targets Windows. -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+</Project>

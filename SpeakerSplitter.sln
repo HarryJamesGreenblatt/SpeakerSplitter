@@ -1,0 +1,56 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeakerSplitter.Tests", "tests\SpeakerSplitter.Tests\SpeakerSplitter.Tests.csproj", "{BFF49003-BB29-4FC0-96E0-D04A6F05C1BC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "code", "code", "{314C6247-30EA-3492-19B6-DF847E3B326F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeakerSplitter.Console", "code\SpeakerSplitter.Console\SpeakerSplitter.Console.csproj", "{CBB4AB66-934B-42C1-9923-0E27501AF442}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BFF49003-BB29-4FC0-96E0-D04A6F05C1BC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BFF49003-BB29-4FC0-96E0-D04A6F05C1BC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BFF49003-BB29-4FC0-96E0-D04A6F05C1BC}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BFF49003-BB29-4FC0-96E0-D04A6F05C1BC}.Debug|x64.Build.0 = Debug|Any CPU
+		{BFF49003-BB29-4FC0-96E0-D04A6F05C1BC}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{BFF49003-BB29-4FC0-96E0-D04A6F05C1BC}.Debug|x86.Build.0 = Debug|Any CPU
+		{BFF49003-BB29-4FC0-96E0-D04A6F05C1BC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BFF49003-BB29-4FC0-96E0-D04A6F05C1BC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BFF49003-BB29-4FC0-96E0-D04A6F05C1BC}.Release|x64.ActiveCfg = Release|Any CPU
+		{BFF49003-BB29-4FC0-96E0-D04A6F05C1BC}.Release|x64.Build.0 = Release|Any CPU
+		{BFF49003-BB29-4FC0-96E0-D04A6F05C1BC}.Release|x86.ActiveCfg = Release|Any CPU
+		{BFF49003-BB29-4FC0-96E0-D04A6F05C1BC}.Release|x86.Build.0 = Release|Any CPU
+		{CBB4AB66-934B-42C1-9923-0E27501AF442}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CBB4AB66-934B-42C1-9923-0E27501AF442}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CBB4AB66-934B-42C1-9923-0E27501AF442}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CBB4AB66-934B-42C1-9923-0E27501AF442}.Debug|x64.Build.0 = Debug|Any CPU
+		{CBB4AB66-934B-42C1-9923-0E27501AF442}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CBB4AB66-934B-42C1-9923-0E27501AF442}.Debug|x86.Build.0 = Debug|Any CPU
+		{CBB4AB66-934B-42C1-9923-0E27501AF442}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CBB4AB66-934B-42C1-9923-0E27501AF442}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CBB4AB66-934B-42C1-9923-0E27501AF442}.Release|x64.ActiveCfg = Release|Any CPU
+		{CBB4AB66-934B-42C1-9923-0E27501AF442}.Release|x64.Build.0 = Release|Any CPU
+		{CBB4AB66-934B-42C1-9923-0E27501AF442}.Release|x86.ActiveCfg = Release|Any CPU
+		{CBB4AB66-934B-42C1-9923-0E27501AF442}.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{BFF49003-BB29-4FC0-96E0-D04A6F05C1BC} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{CBB4AB66-934B-42C1-9923-0E27501AF442} = {314C6247-30EA-3492-19B6-DF847E3B326F}
+	EndGlobalSection
+EndGlobal
