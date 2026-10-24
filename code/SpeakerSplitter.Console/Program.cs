@@ -11,3 +11,42 @@ var endpoints = EndpointCatalog.ListActive();
 Console.WriteLine($"Active render endpoints ({endpoints.Count}):");
 Console.WriteLine();
 EndpointTable.Write(Console.Out, endpoints);
+Console.WriteLine();
+
+using var source = new LoopbackSource();
+var captureFormat = MixFormatInfo.From(source.WaveFormat);
+var defaultFormat = endpoints.FirstOrDefault(e => e.IsDefault)?.Format;
+
+Console.WriteLine($"Loopback capture format: {captureFormat.Describe()}");
+Console.WriteLine(captureFormat == defaultFormat
+    ? "Matches the default endpoint's mix format."
+    : "Does NOT match the default endpoint's mix format.");
+
+long buffers = 0;
+long bytes = 0;
+source.Data += (_, count) =>
+{
+    Interlocked.Increment(ref buffers);
+    Interlocked.Add(ref bytes, count);
+};
+
+using var quit = new ManualResetEventSlim();
+Console.CancelKeyPress += (_, e) =>
+{
+    // Cancelling the default termination lets the normal exit path stop and dispose the capture.
+    e.Cancel = true;
+    quit.Set();
+};
+new Thread(() =>
+{
+    Console.ReadLine();
+    quit.Set();
+}) { IsBackground = true }.Start();
+
+source.Start();
+Console.WriteLine();
+Console.WriteLine("Capturing the default endpoint. Press Enter or Ctrl+C to stop.");
+quit.Wait();
+
+source.Stop();
+Console.WriteLine($"Stopped. Received {buffers} buffers ({bytes} bytes).");

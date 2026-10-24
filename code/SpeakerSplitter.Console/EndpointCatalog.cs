@@ -1,10 +1,7 @@
 using System.Runtime.InteropServices;
 using NAudio.CoreAudioApi;
-using NAudio.Wave;
 
 namespace SpeakerSplitter;
-
-public sealed record MixFormatInfo(int SampleRate, int Channels, int BitsPerSample, string Encoding);
 
 public sealed record EndpointInfo(string Id, string FriendlyName, bool IsDefault, MixFormatInfo? Format);
 
@@ -36,28 +33,12 @@ public static class EndpointCatalog
     {
         try
         {
-            var format = device.AudioClient.MixFormat;
-            return new MixFormatInfo(format.SampleRate, format.Channels, format.BitsPerSample, DescribeEncoding(format));
+            return MixFormatInfo.From(device.AudioClient.MixFormat);
         }
         catch (Exception)
         {
             return null;
         }
-    }
-
-    // Shared-mode mix formats are usually WAVE_FORMAT_EXTENSIBLE, whose Encoding is only "Extensible";
-    // the SubFormat says whether samples are PCM or float.
-    private static string DescribeEncoding(WaveFormat format)
-    {
-        if (format is not WaveFormatExtensible extensible)
-        {
-            return format.Encoding.ToString();
-        }
-
-        var standard = extensible.ToStandardWaveFormat();
-        return standard.Encoding != WaveFormatEncoding.Extensible
-            ? standard.Encoding.ToString()
-            : extensible.SubFormat.ToString();
     }
 
     // Role.Multimedia is the role WasapiLoopbackCapture uses for its default device,
