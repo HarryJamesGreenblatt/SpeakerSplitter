@@ -1,0 +1,12 @@
+{
+  "servers": {
+    "ado": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@azure-devops/mcp", "sequitur-scrum", "-d", "core", "work", "work-items", "search", "wiki"],
+      "env": {
+        "ado_mcp_project": "SpeakerSplitter"
+      }
+    }
+  }
+}
