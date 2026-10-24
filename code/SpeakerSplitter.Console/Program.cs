@@ -9,8 +9,5 @@ Console.WriteLine();
 
 var endpoints = EndpointCatalog.ListActive();
 Console.WriteLine($"Active render endpoints ({endpoints.Count}):");
-foreach (var endpoint in endpoints)
-{
-    var marker = endpoint.IsDefault ? "[DEFAULT]" : "";
-    Console.WriteLine($"  {marker,-9}  {endpoint.FriendlyName}  [{endpoint.Id}]");
-}
+Console.WriteLine();
+EndpointTable.Write(Console.Out, endpoints);
