@@ -5,13 +5,62 @@ var version = Assembly.GetExecutingAssembly().GetName().Version;
 
 Console.WriteLine($"SpeakerSplitter {version}");
 Console.WriteLine("Mirrors Windows system audio to additional playback devices.");
+Console.WriteLine(CommandLine.Usage);
 Console.WriteLine();
+
+var options = CommandLine.Parse(args);
+if (options.Error is not null)
+{
+    Console.Error.WriteLine(options.Error);
+    return 2;
+}
 
 var endpoints = EndpointCatalog.ListActive();
 Console.WriteLine($"Active render endpoints ({endpoints.Count}):");
 Console.WriteLine();
 EndpointTable.Write(Console.Out, endpoints);
 Console.WriteLine();
+
+var selection = DeviceSelection.Select(endpoints, options.Devices);
+
+// Without --device on a real console, ask. Redirected input (scripts, tests) never prompts.
+var interactive = options.Devices.Count == 0 && !Console.IsInputRedirected;
+while (interactive)
+{
+    Console.Write("Device numbers to mirror to (for example 2,3), or Enter for none: ");
+    selection = DeviceSelection.Select(endpoints, DeviceSelection.SplitList(Console.ReadLine()));
+    if (selection.IsValid)
+    {
+        Console.WriteLine();
+        break;
+    }
+
+    foreach (var error in selection.Errors)
+    {
+        Console.Error.WriteLine(error);
+    }
+}
+
+if (!selection.IsValid)
+{
+    foreach (var error in selection.Errors)
+    {
+        Console.Error.WriteLine(error);
+    }
+
+    return 2;
+}
+
+if (selection.Accepted.Count > 0)
+{
+    Console.WriteLine("Selected output devices:");
+    foreach (var device in selection.Accepted)
+    {
+        Console.WriteLine($"  {device.FriendlyName}");
+    }
+
+    Console.WriteLine();
+}
 
 using var source = new LoopbackSource();
 var captureFormat = MixFormatInfo.From(source.WaveFormat);
@@ -68,6 +117,20 @@ Timer? timer = null;
 try
 {
     watcher.Changed += () => Lose("The default output device changed.");
+
+    // The default may have changed since the selection was made. The watcher above now covers every
+    // later change, so checking the selection against the current list closes the gap before Start.
+    var current = DeviceSelection.Select(EndpointCatalog.ListActive(), selection.Accepted.Select(d => d.Id));
+    if (!current.IsValid)
+    {
+        Console.Error.WriteLine("The output devices changed before capture started:");
+        foreach (var error in current.Errors)
+        {
+            Console.Error.WriteLine(error);
+        }
+
+        return 2;
+    }
 
     source.Start();
     Console.WriteLine();

@@ -15,7 +15,7 @@ public class EndpointTableTests
         EndpointTable.Write(writer, endpoints);
 
         var lines = writer.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
-        Assert.Contains(lines, line => line.StartsWith("Broken Device") && line.Contains("n/a"));
-        Assert.Contains(lines, line => line.StartsWith("Speakers") && line.Contains("48000") && line.Contains("IeeeFloat"));
+        Assert.Contains(lines, line => line.StartsWith("1 | Broken Device") && line.Contains("n/a"));
+        Assert.Contains(lines, line => line.StartsWith("2 | Speakers") && line.Contains("48000") && line.Contains("IeeeFloat"));
     }
 }

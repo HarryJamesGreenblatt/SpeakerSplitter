@@ -2,13 +2,15 @@ namespace SpeakerSplitter;
 
 public static class EndpointTable
 {
-    private static readonly string[] Headers = ["Name", "Default", "Rate", "Ch", "Bits", "Encoding"];
+    private static readonly string[] Headers = ["#", "Name", "Default", "Rate", "Ch", "Bits", "Encoding"];
     private const string Unavailable = "n/a";
 
+    // The number is the 1-based position in `endpoints`, which is what DeviceSelection accepts.
     public static void Write(TextWriter writer, IReadOnlyList<EndpointInfo> endpoints)
     {
-        var rows = endpoints.Select(endpoint => new[]
+        var rows = endpoints.Select((endpoint, index) => new[]
         {
+            (index + 1).ToString(),
             endpoint.FriendlyName,
             endpoint.IsDefault ? "yes" : "",
             endpoint.Format?.SampleRate.ToString() ?? Unavailable,
