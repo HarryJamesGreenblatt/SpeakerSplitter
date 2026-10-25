@@ -52,29 +52,64 @@ new Thread(() =>
     quit.Set();
 }) { IsBackground = true }.Start();
 
-source.Start();
-Console.WriteLine();
-Console.WriteLine("Capturing the default endpoint. Press Enter or Ctrl+C to stop.");
-
-// Rendering from a timer, not the capture callback, lets the bar decay while no data arrives.
-var renderLock = new object();
-var lastLine = "";
-var timer = new Timer(_ =>
+string? lossReason = null;
+void Lose(string reason)
 {
-    lock (renderLock)
+    // The first reason wins: unplugging the default device raises both a capture error and a default-device change.
+    if (Interlocked.CompareExchange(ref lossReason, reason, null) is null)
     {
-        var line = PeakMeter.Render(meter.Level);
-        if (line != lastLine)
-        {
-            Console.Write('\r' + line);
-            lastLine = line;
-        }
+        quit.Set();
     }
-}, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(50));
-quit.Wait();
+}
 
-await timer.DisposeAsync();
-source.Stop();
+source.Lost += Lose;
+var watcher = new DefaultOutputWatcher();
+Timer? timer = null;
+try
+{
+    watcher.Changed += () => Lose("The default output device changed.");
+
+    source.Start();
+    Console.WriteLine();
+    Console.WriteLine("Capturing the default endpoint. Press Enter or Ctrl+C to stop.");
+
+    // Rendering from a timer, not the capture callback, lets the bar decay while no data arrives.
+    var renderLock = new object();
+    var lastLine = "";
+    timer = new Timer(_ =>
+    {
+        lock (renderLock)
+        {
+            var line = PeakMeter.Render(meter.Level);
+            if (line != lastLine)
+            {
+                Console.Write('\r' + line);
+                lastLine = line;
+            }
+        }
+    }, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(50));
+    quit.Wait();
+}
+finally
+{
+    // Runs on every exit path, including exceptions. Anything that calls back is silenced before the
+    // objects it touches go away, and the timer is awaited so nothing draws after the final line.
+    source.Lost -= Lose;
+    watcher.Dispose();
+    if (timer is not null)
+    {
+        await timer.DisposeAsync();
+    }
+
+    source.Stop();
+}
+
 Console.WriteLine();
+if (lossReason is not null)
+{
+    Console.Error.WriteLine($"Capture lost: {lossReason}");
+    Console.Error.WriteLine("Exiting without recovery. Restart SpeakerSplitter to capture the current default endpoint.");
+}
+
 Console.WriteLine($"Stopped. Received {buffers} buffers ({bytes} bytes).");
-return 0;
+return lossReason is null ? 0 : 1;
