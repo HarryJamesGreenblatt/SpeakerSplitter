@@ -158,6 +158,11 @@ try
     source.Start();
     Console.WriteLine();
     Console.WriteLine($"Capturing the default endpoint; mirroring to {current.Accepted.Count} other device(s).");
+    foreach (var conversion in outputs.Conversions)
+    {
+        Console.WriteLine($"  {conversion}");
+    }
+
     Console.WriteLine("Press Enter or Ctrl+C to stop.");
 
     // Rendering from a timer, not the capture callback, lets the bar decay while no data arrives.

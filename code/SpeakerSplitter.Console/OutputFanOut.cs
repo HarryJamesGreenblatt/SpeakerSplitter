@@ -71,6 +71,10 @@ public sealed class OutputFanOut : IDisposable
     public IReadOnlyList<DeviceBufferStats> Snapshot() =>
         _outputs.Select(output => new DeviceBufferStats(output.Name, output.Stats)).ToList();
 
+    // One line per device that is being converted; devices that already match the capture are not listed.
+    public IReadOnlyList<string> Conversions =>
+        _outputs.Where(output => output.Conversion is not null).Select(output => $"{output.Name}: converting {output.Conversion}").ToList();
+
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
@@ -141,7 +145,14 @@ public sealed class OutputFanOut : IDisposable
                     Player = createOutput(endpoint);
                 }
 
-                Player.Init(Buffer);
+                IWaveProvider source = Buffer;
+                if (endpoint.Format is { } device && FormatConversion.NeedsConversion(format, device))
+                {
+                    source = FormatConversion.Create(Buffer, device);
+                    Conversion = FormatConversion.Describe(format, device);
+                }
+
+                Player.Init(source);
                 Player.PlaybackStopped += OnPlaybackStopped;
             }
             catch (Exception initializationError)
@@ -167,6 +178,8 @@ public sealed class OutputFanOut : IDisposable
 
         public string Name => _endpoint.FriendlyName;
 
+        // Null when the device already matches the capture and receives the audio untouched.
+        public string? Conversion { get; }
         public BufferStats Stats => Buffer.Stats;
 
         public void Dispose()

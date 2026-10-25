@@ -37,6 +37,45 @@ public class OutputFanOutTests
     }
 
     [Fact]
+    public void AddSamples_ResamplesForADeviceWhoseRateDiffers()
+    {
+        var device = new EndpointInfo("usb", "USB speakers", false, new MixFormatInfo(44100, 2, 32, "IeeeFloat"));
+        var player = new FakePlayer();
+        using var outputs = new OutputFanOut(Format, "capture", [device], _ => player);
+        outputs.Start();
+        var packet = new byte[Format.AverageBytesPerSecond / 10];
+        for (var i = 0; i < packet.Length; i += 4)
+        {
+            BitConverter.TryWriteBytes(packet.AsSpan(i), 0.5f);
+        }
+
+        outputs.AddSamples(packet, packet.Length);
+
+        Assert.Equal(44100, player.Provider!.WaveFormat.SampleRate);
+        var actual = new byte[4410 * 8];
+        Assert.Equal(actual.Length, player.Provider.Read(actual, 0, actual.Length));
+        Assert.Contains(actual, value => value != 0);
+    }
+
+    [Fact]
+    public void Conversion_IsAppliedOnlyToTheMismatchedDevice()
+    {
+        var matching = new EndpointInfo("usb", "USB speakers", false, new MixFormatInfo(48000, 2, 32, "IeeeFloat"));
+        var mismatched = new EndpointInfo("tv", "TV", false, new MixFormatInfo(44100, 2, 32, "IeeeFloat"));
+        var unknown = new EndpointInfo("old", "Unknown format", false, null);
+        var players = new Dictionary<string, FakePlayer> { ["usb"] = new(), ["tv"] = new(), ["old"] = new() };
+
+        using var outputs = new OutputFanOut(
+            Format, "capture", [matching, mismatched, unknown], endpoint => players[endpoint.Id]);
+
+        Assert.IsType<MeteredBuffer>(players["usb"].Provider);
+        Assert.IsType<MeteredBuffer>(players["old"].Provider);
+        Assert.IsNotType<MeteredBuffer>(players["tv"].Provider);
+        Assert.Equal(44100, players["tv"].Provider!.WaveFormat.SampleRate);
+        Assert.Equal(["TV: converting 48000 Hz 2 ch -> 44100 Hz 2 ch"], outputs.Conversions);
+    }
+
+    [Fact]
     public void Snapshot_ReportsEveryDeviceByNameInSelectionOrder()
     {
         using var outputs = new OutputFanOut(Format, "capture", [Headphones, Monitor], _ => new FakePlayer());
