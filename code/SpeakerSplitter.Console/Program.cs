@@ -1,4 +1,8 @@
 using System.Reflection;
+using System.Runtime.InteropServices;
+using NAudio;
+using NAudio.CoreAudioApi;
+using NAudio.Wave;
 using SpeakerSplitter;
 
 var version = Assembly.GetExecutingAssembly().GetName().Version;
@@ -62,7 +66,9 @@ if (selection.Accepted.Count > 0)
     Console.WriteLine();
 }
 
-using var source = new LoopbackSource();
+using var enumerator = new MMDeviceEnumerator();
+using var captureDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+using var source = new LoopbackSource(new WasapiLoopbackCapture(captureDevice));
 var captureFormat = MixFormatInfo.From(source.WaveFormat);
 var defaultFormat = endpoints.FirstOrDefault(e => e.IsDefault)?.Format;
 
@@ -80,12 +86,14 @@ if (!PeakMeter.IsSupported(captureFormat))
 var meter = new LevelMeter();
 long buffers = 0;
 long bytes = 0;
+OutputFanOut? outputs = null;
 source.Data += (buffer, count) =>
 {
     Interlocked.Increment(ref buffers);
     Interlocked.Add(ref bytes, count);
 
     meter.Push(PeakMeter.Compute(buffer.AsSpan(0, count), captureFormat));
+    outputs?.AddSamples(buffer, count);
 };
 
 using var quit = new ManualResetEventSlim();
@@ -99,7 +107,8 @@ new Thread(() =>
 {
     Console.ReadLine();
     quit.Set();
-}) { IsBackground = true }.Start();
+})
+{ IsBackground = true }.Start();
 
 string? lossReason = null;
 void Lose(string reason)
@@ -120,7 +129,17 @@ try
 
     // The default may have changed since the selection was made. The watcher above now covers every
     // later change, so checking the selection against the current list closes the gap before Start.
-    var current = DeviceSelection.Select(EndpointCatalog.ListActive(), selection.Accepted.Select(d => d.Id));
+    var currentEndpoints = EndpointCatalog.ListActive();
+    if (!string.Equals(
+        currentEndpoints.FirstOrDefault(endpoint => endpoint.IsDefault)?.Id,
+        captureDevice.ID,
+        StringComparison.OrdinalIgnoreCase))
+    {
+        Console.Error.WriteLine("The default output device changed before capture started. Restart SpeakerSplitter.");
+        return 2;
+    }
+
+    var current = DeviceSelection.Select(currentEndpoints, selection.Accepted.Select(d => d.Id));
     if (!current.IsValid)
     {
         Console.Error.WriteLine("The output devices changed before capture started:");
@@ -132,9 +151,13 @@ try
         return 2;
     }
 
+    outputs = new OutputFanOut(source.WaveFormat, captureDevice.ID, current.Accepted);
+    outputs.Lost += Lose;
+    outputs.Start();
     source.Start();
     Console.WriteLine();
-    Console.WriteLine("Capturing the default endpoint. Press Enter or Ctrl+C to stop.");
+    Console.WriteLine($"Capturing the default endpoint; mirroring to {current.Accepted.Count} other device(s).");
+    Console.WriteLine("Press Enter or Ctrl+C to stop.");
 
     // Rendering from a timer, not the capture callback, lets the bar decay while no data arrives.
     var renderLock = new object();
@@ -153,25 +176,55 @@ try
     }, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(50));
     quit.Wait();
 }
+catch (Exception exception) when (exception is COMException or MmException or AggregateException
+    or InvalidOperationException or NotSupportedException or ArgumentException)
+{
+    Console.Error.WriteLine($"Audio session failed ({exception.GetType().Name}: {exception.Message}).");
+    return 1;
+}
 finally
 {
     // Runs on every exit path, including exceptions. Anything that calls back is silenced before the
     // objects it touches go away, and the timer is awaited so nothing draws after the final line.
-    source.Lost -= Lose;
-    watcher.Dispose();
-    if (timer is not null)
+    try
     {
-        await timer.DisposeAsync();
+        source.Lost -= Lose;
+        watcher.Dispose();
+        if (timer is not null)
+        {
+            await timer.DisposeAsync();
+        }
     }
-
-    source.Stop();
+    finally
+    {
+        try
+        {
+            source.Stop();
+        }
+        finally
+        {
+            if (outputs is not null)
+            {
+                outputs.Lost -= Lose;
+                try
+                {
+                    outputs.Dispose();
+                }
+                catch (AggregateException exception)
+                {
+                    Console.Error.WriteLine($"Output cleanup failed: {exception}");
+                    Lose("One or more output resources could not be released.");
+                }
+            }
+        }
+    }
 }
 
 Console.WriteLine();
 if (lossReason is not null)
 {
-    Console.Error.WriteLine($"Capture lost: {lossReason}");
-    Console.Error.WriteLine("Exiting without recovery. Restart SpeakerSplitter to capture the current default endpoint.");
+    Console.Error.WriteLine($"Audio session lost: {lossReason}");
+    Console.Error.WriteLine("Exiting without recovery. Restart SpeakerSplitter to use the current devices.");
 }
 
 Console.WriteLine($"Stopped. Received {buffers} buffers ({bytes} bytes).");
