@@ -67,6 +67,10 @@ public sealed class OutputFanOut : IDisposable
         }
     }
 
+    // Safe to call from any thread, including after Dispose.
+    public IReadOnlyList<DeviceBufferStats> Snapshot() =>
+        _outputs.Select(output => new DeviceBufferStats(output.Name, output.Stats)).ToList();
+
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
@@ -121,12 +125,7 @@ public sealed class OutputFanOut : IDisposable
         {
             _endpoint = endpoint;
             _lost = lost;
-            Buffer = new BufferedWaveProvider(format)
-            {
-                BufferDuration = TimeSpan.FromMilliseconds(300),
-                ReadFully = true,
-                DiscardOnBufferOverflow = true,
-            };
+            Buffer = new MeteredBuffer(format, TimeSpan.FromMilliseconds(300));
 
             try
             {
@@ -162,9 +161,13 @@ public sealed class OutputFanOut : IDisposable
             }
         }
 
-        public BufferedWaveProvider Buffer { get; }
+        public MeteredBuffer Buffer { get; }
 
         public IWavePlayer Player { get; }
+
+        public string Name => _endpoint.FriendlyName;
+
+        public BufferStats Stats => Buffer.Stats;
 
         public void Dispose()
         {

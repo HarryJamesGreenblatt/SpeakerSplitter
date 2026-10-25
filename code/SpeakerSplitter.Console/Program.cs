@@ -123,6 +123,7 @@ void Lose(string reason)
 source.Lost += Lose;
 var watcher = new DefaultOutputWatcher();
 Timer? timer = null;
+Timer? fillTimer = null;
 try
 {
     watcher.Changed += () => Lose("The default output device changed.");
@@ -174,6 +175,22 @@ try
             }
         }
     }, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(50));
+
+    // One timer logs every device, so each second's lines stay together. The meter shares the console line,
+    // so a log line overwrites it (padded to its width) and the meter redraws on its next tick.
+    var fanOut = outputs;
+    fillTimer = new Timer(_ =>
+    {
+        var now = DateTime.Now;
+        lock (renderLock)
+        {
+            foreach (var device in fanOut.Snapshot())
+            {
+                Console.Write('\r' + FillLog.Format(now, device.Name, device.Stats).PadRight(lastLine.Length) + '\n');
+                lastLine = "";
+            }
+        }
+    }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
     quit.Wait();
 }
 catch (Exception exception) when (exception is COMException or MmException or AggregateException
@@ -190,6 +207,11 @@ finally
     {
         source.Lost -= Lose;
         watcher.Dispose();
+        if (fillTimer is not null)
+        {
+            await fillTimer.DisposeAsync();
+        }
+
         if (timer is not null)
         {
             await timer.DisposeAsync();

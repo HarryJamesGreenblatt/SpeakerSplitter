@@ -27,13 +27,53 @@ public class OutputFanOutTests
 
         foreach (var player in players)
         {
-            var provider = Assert.IsType<BufferedWaveProvider>(player.Provider);
+            var provider = Assert.IsType<MeteredBuffer>(player.Provider);
             Assert.Same(Format, provider.WaveFormat);
             Assert.Equal(PlaybackState.Playing, player.PlaybackState);
             var actual = new byte[16];
             Assert.Equal(actual.Length, provider.Read(actual, 0, actual.Length));
             Assert.Equal(Enumerable.Range(1, 16).Select(i => (byte)i), actual);
         }
+    }
+
+    [Fact]
+    public void Snapshot_ReportsEveryDeviceByNameInSelectionOrder()
+    {
+        using var outputs = new OutputFanOut(Format, "capture", [Headphones, Monitor], _ => new FakePlayer());
+        outputs.AddSamples(new byte[3840], 3840);
+
+        var snapshot = outputs.Snapshot();
+
+        Assert.Equal(["Headphones", "Monitor"], snapshot.Select(device => device.Name));
+        Assert.All(snapshot, device =>
+        {
+            Assert.Equal(3840, device.Stats.BufferedBytes);
+            Assert.Equal(Format.AverageBytesPerSecond, device.Stats.AverageBytesPerSecond);
+            Assert.Equal(10, device.Stats.FillMilliseconds);
+        });
+    }
+
+    [Fact]
+    public void Snapshot_FillRisesWhileOutputIsStalled_FallsAsItDrains_AndStopsAtFull()
+    {
+        var player = new FakePlayer();
+        using var outputs = new OutputFanOut(Format, "capture", [Headphones], _ => player);
+
+        BufferStats Current() => outputs.Snapshot().Single().Stats;
+        outputs.AddSamples(new byte[3840], 3840);
+        var first = Current();
+        outputs.AddSamples(new byte[3840], 3840);
+        var stalled = Current();
+        player.Provider!.Read(new byte[5760], 0, 5760);
+        var drained = Current();
+        outputs.AddSamples(new byte[stalled.BufferLength], stalled.BufferLength);
+        var full = Current();
+
+        Assert.Equal(10, first.FillMilliseconds);
+        Assert.Equal(20, stalled.FillMilliseconds);
+        Assert.True(stalled.FillFraction > first.FillFraction);
+        Assert.Equal(5, drained.FillMilliseconds);
+        Assert.Equal(1.0, full.FillFraction);
     }
 
     [Fact]
@@ -58,16 +98,17 @@ public class OutputFanOutTests
         var active = new FakePlayer();
         using var outputs = new OutputFanOut(
             Format, "capture", [Headphones, Monitor], endpoint => endpoint == Headphones ? stalled : active);
-        var stalledBuffer = Assert.IsType<BufferedWaveProvider>(stalled.Provider);
-        var activeBuffer = Assert.IsType<BufferedWaveProvider>(active.Provider);
-        var packet = new byte[stalledBuffer.BufferLength];
+        var stalledBuffer = Assert.IsType<MeteredBuffer>(stalled.Provider);
+        var activeBuffer = Assert.IsType<MeteredBuffer>(active.Provider);
+        var packet = new byte[stalledBuffer.Stats.BufferLength];
         packet.AsSpan().Fill(42);
         outputs.AddSamples(packet, packet.Length);
         activeBuffer.Read(new byte[packet.Length], 0, packet.Length);
 
         outputs.AddSamples([1, 2, 3, 4, 5, 6, 7, 8], 8);
 
-        Assert.Equal(stalledBuffer.BufferLength, stalledBuffer.BufferedBytes);
+        Assert.Equal(stalledBuffer.Stats.BufferLength, stalledBuffer.Stats.BufferedBytes);
+        Assert.Equal([1L, 0L], outputs.Snapshot().Select(device => device.Stats.Overflows));
         var actual = new byte[8];
         activeBuffer.Read(actual, 0, actual.Length);
         Assert.Equal(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 }, actual);
