@@ -56,12 +56,12 @@ public class PeakMeterTests
     [Fact]
     public void Render_ShowsEmptyBarAtSilenceAndFullBarAtFullScale()
     {
-        var silent = PeakMeter.Render(0f);
-        var full = PeakMeter.Render(1f);
+        var silent = MeterBar.Render(0f);
+        var full = MeterBar.Render(1f);
 
         Assert.Equal($"[{new string(' ', 40)}]   -inf dB", silent);
         Assert.Equal($"[{new string('#', 40)}]    0.0 dB", full);
-        Assert.Equal(silent.Length, PeakMeter.Render(0.05f).Length);
+        Assert.Equal(silent.Length, MeterBar.Render(0.05f).Length);
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public class PeakMeterTests
         Assert.Equal(0.9f, meter.Level, 3);
 
         clock.Advance(TimeSpan.FromMilliseconds(1100));
-        Assert.Equal("[" + new string(' ', 40) + "]   -inf dB", PeakMeter.Render(meter.Level));
+        Assert.Equal("[" + new string(' ', 40) + "]   -inf dB", MeterBar.Render(meter.Level));
     }
 
     private sealed class ManualTimeProvider : TimeProvider

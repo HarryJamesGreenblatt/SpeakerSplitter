@@ -3,10 +3,16 @@ using NAudio.CoreAudioApi.Interfaces;
 
 namespace SpeakerSplitter;
 
+public interface IDefaultOutputWatcher : IDisposable
+{
+    // Raised on a COM notification thread.
+    event Action? Changed;
+}
+
 // Reports when the default multimedia render endpoint changes. Loopback capture stays bound to the
 // endpoint it was opened on, so without this a default-output switch would silently keep capturing
 // the old device instead of failing.
-public sealed class DefaultOutputWatcher : IDisposable
+public sealed class DefaultOutputWatcher : IDefaultOutputWatcher
 {
     private readonly MMDeviceEnumerator _enumerator = new();
     private readonly NotificationClient _client;
@@ -17,7 +23,6 @@ public sealed class DefaultOutputWatcher : IDisposable
         _enumerator.RegisterEndpointNotificationCallback(_client);
     }
 
-    // Raised on a COM notification thread.
     public event Action? Changed;
 
     public void Dispose()

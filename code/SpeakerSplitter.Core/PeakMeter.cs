@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Runtime.InteropServices;
 
 namespace SpeakerSplitter;
@@ -44,17 +43,6 @@ public static class PeakMeter
         }
 
         throw new NotSupportedException($"Peak meter does not support {format.Describe()}.");
-    }
-
-    // One fixed-width line, so overwriting it with '\r' never leaves stray characters behind.
-    public static string Render(float level, int width = 40)
-    {
-        var db = level > 0f ? 20f * MathF.Log10(level) : float.NegativeInfinity;
-        var clamped = Math.Clamp(db, FloorDb, 0f);
-        var filled = (int)MathF.Round((clamped - FloorDb) / -FloorDb * width);
-        var readout = db <= FloorDb ? "-inf" : db.ToString("F1", CultureInfo.InvariantCulture);
-
-        return $"[{new string('#', filled)}{new string(' ', width - filled)}] {readout,6} dB";
     }
 
     private static bool IsFloat32(MixFormatInfo format) => format is { Encoding: "IeeeFloat", BitsPerSample: 32 };

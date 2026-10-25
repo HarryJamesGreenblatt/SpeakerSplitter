@@ -1,8 +1,6 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
 using NAudio;
-using NAudio.CoreAudioApi;
-using NAudio.Wave;
 using SpeakerSplitter;
 
 var version = Assembly.GetExecutingAssembly().GetName().Version;
@@ -66,10 +64,8 @@ if (selection.Accepted.Count > 0)
     Console.WriteLine();
 }
 
-using var enumerator = new MMDeviceEnumerator();
-using var captureDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-using var source = new LoopbackSource(new WasapiLoopbackCapture(captureDevice));
-var captureFormat = MixFormatInfo.From(source.WaveFormat);
+using var engine = SplitterEngine.ForDefaultOutput();
+var captureFormat = engine.CaptureFormat;
 var defaultFormat = endpoints.FirstOrDefault(e => e.IsDefault)?.Format;
 
 Console.WriteLine($"Loopback capture format: {captureFormat.Describe()}");
@@ -82,19 +78,6 @@ if (!PeakMeter.IsSupported(captureFormat))
     Console.Error.WriteLine($"The peak meter supports 32-bit float and 16-bit PCM, not {captureFormat.Describe()}.");
     return 1;
 }
-
-var meter = new LevelMeter();
-long buffers = 0;
-long bytes = 0;
-OutputFanOut? outputs = null;
-source.Data += (buffer, count) =>
-{
-    Interlocked.Increment(ref buffers);
-    Interlocked.Add(ref bytes, count);
-
-    meter.Push(PeakMeter.Compute(buffer.AsSpan(0, count), captureFormat));
-    outputs?.AddSamples(buffer, count);
-};
 
 using var quit = new ManualResetEventSlim();
 Console.CancelKeyPress += (_, e) =>
@@ -120,83 +103,66 @@ void Lose(string reason)
     }
 }
 
-source.Lost += Lose;
-var watcher = new DefaultOutputWatcher();
-Timer? timer = null;
-Timer? fillTimer = null;
+engine.Lost += Lose;
 try
 {
-    watcher.Changed += () => Lose("The default output device changed.");
-
-    // The default may have changed since the selection was made. The watcher above now covers every
-    // later change, so checking the selection against the current list closes the gap before Start.
-    var currentEndpoints = EndpointCatalog.ListActive();
-    if (!string.Equals(
-        currentEndpoints.FirstOrDefault(endpoint => endpoint.IsDefault)?.Id,
-        captureDevice.ID,
-        StringComparison.OrdinalIgnoreCase))
-    {
-        Console.Error.WriteLine("The default output device changed before capture started. Restart SpeakerSplitter.");
-        return 2;
-    }
-
-    var current = DeviceSelection.Select(currentEndpoints, selection.Accepted.Select(d => d.Id));
-    if (!current.IsValid)
-    {
-        Console.Error.WriteLine("The output devices changed before capture started:");
-        foreach (var error in current.Errors)
-        {
-            Console.Error.WriteLine(error);
-        }
-
-        return 2;
-    }
-
-    outputs = new OutputFanOut(source.WaveFormat, captureDevice.ID, current.Accepted);
-    outputs.Lost += Lose;
-    outputs.Start();
-    source.Start();
+    engine.Start(selection.Accepted);
     Console.WriteLine();
-    Console.WriteLine($"Capturing the default endpoint; mirroring to {current.Accepted.Count} other device(s).");
-    foreach (var conversion in outputs.Conversions)
+    Console.WriteLine($"Capturing the default endpoint; mirroring to {selection.Accepted.Count} other device(s).");
+    foreach (var conversion in engine.Conversions)
     {
         Console.WriteLine($"  {conversion}");
     }
 
     Console.WriteLine("Press Enter or Ctrl+C to stop.");
 
-    // Rendering from a timer, not the capture callback, lets the bar decay while no data arrives.
+    // The engine raises both events from timers, not the capture callback, so the bar can decay while no
+    // data arrives. The meter and the fill log share the console line: a log line overwrites the meter row
+    // (padded to its width) and the meter redraws on its next update.
     var renderLock = new object();
     var lastLine = "";
-    timer = new Timer(_ =>
+    engine.PeakUpdated += level =>
     {
         lock (renderLock)
         {
-            var line = PeakMeter.Render(meter.Level);
+            var line = MeterBar.Render(level);
             if (line != lastLine)
             {
                 Console.Write('\r' + line);
                 lastLine = line;
             }
         }
-    }, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(50));
-
-    // One timer logs every device, so each second's lines stay together. The meter shares the console line,
-    // so a log line overwrites it (padded to its width) and the meter redraws on its next tick.
-    var fanOut = outputs;
-    fillTimer = new Timer(_ =>
+    };
+    engine.StatsUpdated += stats =>
     {
         var now = DateTime.Now;
         lock (renderLock)
         {
-            foreach (var device in fanOut.Snapshot())
+            foreach (var device in stats)
             {
                 Console.Write('\r' + FillLog.Format(now, device.Name, device.Stats).PadRight(lastLine.Length) + '\n');
                 lastLine = "";
             }
         }
-    }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    };
     quit.Wait();
+}
+catch (SplitterStartException exception)
+{
+    if (exception.Reason == StartFailure.DefaultOutputChanged)
+    {
+        Console.Error.WriteLine($"{exception.Message} Restart SpeakerSplitter.");
+    }
+    else
+    {
+        Console.Error.WriteLine("The output devices changed before capture started:");
+        foreach (var problem in exception.Problems)
+        {
+            Console.Error.WriteLine(problem);
+        }
+    }
+
+    return 2;
 }
 catch (Exception exception) when (exception is COMException or MmException or AggregateException
     or InvalidOperationException or NotSupportedException or ArgumentException)
@@ -206,44 +172,17 @@ catch (Exception exception) when (exception is COMException or MmException or Ag
 }
 finally
 {
-    // Runs on every exit path, including exceptions. Anything that calls back is silenced before the
-    // objects it touches go away, and the timer is awaited so nothing draws after the final line.
+    // Runs on every exit path, including exceptions. Stop silences everything that calls back before the
+    // objects it touches go away, and waits for the engine's timers so nothing draws after the final line.
+    engine.Lost -= Lose;
     try
     {
-        source.Lost -= Lose;
-        watcher.Dispose();
-        if (fillTimer is not null)
-        {
-            await fillTimer.DisposeAsync();
-        }
-
-        if (timer is not null)
-        {
-            await timer.DisposeAsync();
-        }
+        engine.Stop();
     }
-    finally
+    catch (AggregateException exception)
     {
-        try
-        {
-            source.Stop();
-        }
-        finally
-        {
-            if (outputs is not null)
-            {
-                outputs.Lost -= Lose;
-                try
-                {
-                    outputs.Dispose();
-                }
-                catch (AggregateException exception)
-                {
-                    Console.Error.WriteLine($"Output cleanup failed: {exception}");
-                    Lose("One or more output resources could not be released.");
-                }
-            }
-        }
+        Console.Error.WriteLine($"Output cleanup failed: {exception}");
+        Lose("One or more output resources could not be released.");
     }
 }
 
@@ -254,5 +193,5 @@ if (lossReason is not null)
     Console.Error.WriteLine("Exiting without recovery. Restart SpeakerSplitter to use the current devices.");
 }
 
-Console.WriteLine($"Stopped. Received {buffers} buffers ({bytes} bytes).");
+Console.WriteLine($"Stopped. Received {engine.BuffersReceived} buffers ({engine.BytesReceived} bytes).");
 return lossReason is null ? 0 : 1;
