@@ -22,12 +22,21 @@ Console.WriteLine(captureFormat == defaultFormat
     ? "Matches the default endpoint's mix format."
     : "Does NOT match the default endpoint's mix format.");
 
+if (!PeakMeter.IsSupported(captureFormat))
+{
+    Console.Error.WriteLine($"The peak meter supports 32-bit float and 16-bit PCM, not {captureFormat.Describe()}.");
+    return 1;
+}
+
+var meter = new LevelMeter();
 long buffers = 0;
 long bytes = 0;
-source.Data += (_, count) =>
+source.Data += (buffer, count) =>
 {
     Interlocked.Increment(ref buffers);
     Interlocked.Add(ref bytes, count);
+
+    meter.Push(PeakMeter.Compute(buffer.AsSpan(0, count), captureFormat));
 };
 
 using var quit = new ManualResetEventSlim();
@@ -46,7 +55,26 @@ new Thread(() =>
 source.Start();
 Console.WriteLine();
 Console.WriteLine("Capturing the default endpoint. Press Enter or Ctrl+C to stop.");
+
+// Rendering from a timer, not the capture callback, lets the bar decay while no data arrives.
+var renderLock = new object();
+var lastLine = "";
+var timer = new Timer(_ =>
+{
+    lock (renderLock)
+    {
+        var line = PeakMeter.Render(meter.Level);
+        if (line != lastLine)
+        {
+            Console.Write('\r' + line);
+            lastLine = line;
+        }
+    }
+}, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(50));
 quit.Wait();
 
+await timer.DisposeAsync();
 source.Stop();
+Console.WriteLine();
 Console.WriteLine($"Stopped. Received {buffers} buffers ({bytes} bytes).");
+return 0;
