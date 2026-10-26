@@ -1,6 +1,6 @@
 using NAudio.Wave;
 
-namespace SpeakerSplitter;
+namespace SpeakerSplitter.Output;
 
 /// <summary>
 /// Wraps a device's <see cref="BufferedWaveProvider"/> to count what it otherwise handles silently: reads it

@@ -1,4 +1,4 @@
-namespace SpeakerSplitter;
+namespace SpeakerSplitter.Capture;
 
 /// <summary>
 /// Holds the loudest recent peak and decays it at a fixed dB per second. Decay is measured from the clock

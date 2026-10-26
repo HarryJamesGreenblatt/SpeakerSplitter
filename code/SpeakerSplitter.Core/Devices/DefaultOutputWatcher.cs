@@ -1,7 +1,7 @@
 using NAudio.CoreAudioApi;
 using NAudio.CoreAudioApi.Interfaces;
 
-namespace SpeakerSplitter;
+namespace SpeakerSplitter.Devices;
 
 /// <summary>Reports when the default render endpoint changes; abstracted so tests can fake it.</summary>
 public interface IDefaultOutputWatcher : IDisposable

@@ -1,4 +1,7 @@
-namespace SpeakerSplitter.Tests;
+using SpeakerSplitter.Display;
+using SpeakerSplitter.Output;
+
+namespace SpeakerSplitter.Tests.Display;
 
 public class FillLogTests
 {

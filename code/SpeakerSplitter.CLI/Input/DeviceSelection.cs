@@ -1,6 +1,7 @@
 using System.Globalization;
+using SpeakerSplitter.Devices;
 
-namespace SpeakerSplitter;
+namespace SpeakerSplitter.Input;
 
 /// <summary>The outcome of turning a user's device requests into endpoints.</summary>
 /// <param name="Accepted">The endpoints that were chosen, in the order requested.</param>

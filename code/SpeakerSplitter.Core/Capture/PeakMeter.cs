@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
+using SpeakerSplitter.Devices;
 
-namespace SpeakerSplitter;
+namespace SpeakerSplitter.Capture;
 
 /// <summary>Measures how loud a buffer of captured audio is.</summary>
 public static class PeakMeter

@@ -20,5 +20,9 @@ Shared ADO, work item, git, commit and PR conventions live in the workspace-leve
 
 - Source in `code/`, tests in `tests/`, solution `SpeakerSplitter.sln`.
 - `SpeakerSplitter.Core` is the UI-free engine (`SplitterEngine`); it must not reference `System.Console` or any UI framework (enforced by `CoreIsolationTests`). The command-line host (`SpeakerSplitter.CLI`) and the planned WPF app are thin hosts over it.
+- Organize by feature area, as HARK does (`Hark.Core.Output`), not by kind of type: one folder per feature, and the namespace equals the folder path (`SpeakerSplitter.Output`). No `Models`, `Services`, `Utilities` or `Interfaces` folders; an interface sits beside its implementation. New code goes in the folder for its feature, and a new feature gets a new folder rather than a catch-all.
+- `SpeakerSplitter.Core`: `Devices/` (endpoint listing, mix formats, default-output watcher), `Capture/` (loopback source, peak and level metering), `Output/` (fan-out, per-device buffers, format conversion). `SplitterEngine` and `SplitterStartException` stay at the project root.
+- `SpeakerSplitter.CLI`: `Input/` (command line, device selection) and `Display/` (endpoint table, fill log, meter bar); `Program.cs` stays at the root.
+- Tests mirror the source folders and namespaces (`SpeakerSplitter.Tests.Output`); the engine and isolation tests sit at the test root beside the engine.
 - Shared build settings in `Directory.Build.props` (net10.0-windows, nullable, warnings as errors).
 - Design rule: capture the DEFAULT render endpoint (WASAPI loopback) and only play to OTHER endpoints; never use the capture endpoint as an output.

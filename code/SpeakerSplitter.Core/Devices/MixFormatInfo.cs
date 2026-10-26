@@ -1,6 +1,6 @@
 using NAudio.Wave;
 
-namespace SpeakerSplitter;
+namespace SpeakerSplitter.Devices;
 
 /// <summary>
 /// One endpoint's shared-mode mix format, reduced to the four values the console, the converter and the

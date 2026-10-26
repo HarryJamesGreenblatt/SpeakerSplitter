@@ -1,7 +1,8 @@
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
+using SpeakerSplitter.Devices;
 
-namespace SpeakerSplitter;
+namespace SpeakerSplitter.Output;
 
 /// <summary>
 /// Converts one device's audio to that device's own mix format. A device whose format already matches the

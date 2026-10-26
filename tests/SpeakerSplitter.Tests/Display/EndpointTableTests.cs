@@ -1,4 +1,7 @@
-namespace SpeakerSplitter.Tests;
+using SpeakerSplitter.Devices;
+using SpeakerSplitter.Display;
+
+namespace SpeakerSplitter.Tests.Display;
 
 public class EndpointTableTests
 {

@@ -1,4 +1,5 @@
 using System.Reflection;
+using SpeakerSplitter.Input;
 
 namespace SpeakerSplitter.Tests;
 

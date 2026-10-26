@@ -1,7 +1,8 @@
 using System.Runtime.InteropServices;
 using NAudio.Wave;
+using SpeakerSplitter.Capture;
 
-namespace SpeakerSplitter.Tests;
+namespace SpeakerSplitter.Tests.Capture;
 
 public class LoopbackSourceTests
 {

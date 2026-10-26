@@ -1,6 +1,9 @@
 using System.Runtime.InteropServices;
+using SpeakerSplitter.Capture;
+using SpeakerSplitter.Devices;
+using SpeakerSplitter.Display;
 
-namespace SpeakerSplitter.Tests;
+namespace SpeakerSplitter.Tests.Capture;
 
 public class PeakMeterTests
 {

@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using NAudio.CoreAudioApi;
 
-namespace SpeakerSplitter;
+namespace SpeakerSplitter.Devices;
 
 /// <summary>One active render endpoint as listed by <see cref="EndpointCatalog"/>.</summary>
 /// <param name="Id">The endpoint's stable device ID.</param>

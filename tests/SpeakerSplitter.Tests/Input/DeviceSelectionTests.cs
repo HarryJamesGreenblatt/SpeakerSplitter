@@ -1,4 +1,7 @@
-namespace SpeakerSplitter.Tests;
+using SpeakerSplitter.Devices;
+using SpeakerSplitter.Input;
+
+namespace SpeakerSplitter.Tests.Input;
 
 public class DeviceSelectionTests
 {

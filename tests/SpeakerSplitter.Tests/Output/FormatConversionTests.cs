@@ -1,7 +1,9 @@
 using System.Runtime.InteropServices;
 using NAudio.Wave;
+using SpeakerSplitter.Devices;
+using SpeakerSplitter.Output;
 
-namespace SpeakerSplitter.Tests;
+namespace SpeakerSplitter.Tests.Output;
 
 public class FormatConversionTests
 {

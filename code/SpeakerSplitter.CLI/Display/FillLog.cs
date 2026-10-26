@@ -1,6 +1,7 @@
 using System.Globalization;
+using SpeakerSplitter.Output;
 
-namespace SpeakerSplitter;
+namespace SpeakerSplitter.Display;
 
 /// <summary>Formats the once-per-second buffer line the console prints for each device.</summary>
 public static class FillLog

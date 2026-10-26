@@ -1,4 +1,4 @@
-namespace SpeakerSplitter;
+namespace SpeakerSplitter.Output;
 
 /// <summary>
 /// A point-in-time view of one device's buffer. M4 drift correction reads the fill level from here.

@@ -2,6 +2,10 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using NAudio;
 using SpeakerSplitter;
+using SpeakerSplitter.Capture;
+using SpeakerSplitter.Devices;
+using SpeakerSplitter.Display;
+using SpeakerSplitter.Input;
 
 // Print the banner and usage.
 var version = Assembly.GetExecutingAssembly().GetName().Version;

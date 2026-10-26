@@ -1,6 +1,7 @@
 using System.Globalization;
+using SpeakerSplitter.Capture;
 
-namespace SpeakerSplitter;
+namespace SpeakerSplitter.Display;
 
 /// <summary>Draws the console's peak meter row.</summary>
 public static class MeterBar

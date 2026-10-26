@@ -1,5 +1,8 @@
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
+using SpeakerSplitter.Capture;
+using SpeakerSplitter.Devices;
+using SpeakerSplitter.Output;
 
 namespace SpeakerSplitter;
 

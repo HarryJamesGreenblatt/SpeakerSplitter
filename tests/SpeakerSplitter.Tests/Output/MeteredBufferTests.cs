@@ -1,6 +1,7 @@
 using NAudio.Wave;
+using SpeakerSplitter.Output;
 
-namespace SpeakerSplitter.Tests;
+namespace SpeakerSplitter.Tests.Output;
 
 public class MeteredBufferTests
 {

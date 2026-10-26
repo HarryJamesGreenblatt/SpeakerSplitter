@@ -1,6 +1,6 @@
 using NAudio.Wave;
 
-namespace SpeakerSplitter;
+namespace SpeakerSplitter.Capture;
 
 /// <summary>
 /// Captures what the default render endpoint is playing. The capture format is that endpoint's shared-mode

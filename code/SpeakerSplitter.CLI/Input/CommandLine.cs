@@ -1,4 +1,4 @@
-namespace SpeakerSplitter;
+namespace SpeakerSplitter.Input;
 
 /// <summary>What the command line asked for, or why it could not be understood.</summary>
 /// <param name="Devices">The device requests given with <c>--device</c>, in order: a number or part of a device ID each.</param>

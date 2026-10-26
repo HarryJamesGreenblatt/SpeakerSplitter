@@ -1,7 +1,8 @@
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
+using SpeakerSplitter.Devices;
 
-namespace SpeakerSplitter;
+namespace SpeakerSplitter.Output;
 
 /// <summary>
 /// Plays the captured audio on several non-default endpoints at once. Each device gets its own buffer and its

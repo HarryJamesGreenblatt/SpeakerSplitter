@@ -1,4 +1,6 @@
-namespace SpeakerSplitter;
+using SpeakerSplitter.Devices;
+
+namespace SpeakerSplitter.Display;
 
 /// <summary>Prints the active endpoints as an aligned table.</summary>
 public static class EndpointTable

@@ -1,4 +1,6 @@
-namespace SpeakerSplitter.Tests;
+using SpeakerSplitter.Input;
+
+namespace SpeakerSplitter.Tests.Input;
 
 public class CommandLineTests
 {
