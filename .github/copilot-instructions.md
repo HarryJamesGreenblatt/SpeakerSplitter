@@ -1,6 +1,6 @@
 # SpeakerSplitter Instructions
 
-Project: SpeakerSplitter, a Windows console and WPF app (C#, .NET, NAudio/WASAPI) that mirrors system audio to additional playback devices.
+Project: SpeakerSplitter, a Windows command-line and WPF app (C#, .NET, NAudio/WASAPI) that mirrors system audio to additional playback devices.
 
 Shared ADO, work item, git, commit and PR conventions live in the workspace-level `.github/copilot-instructions.md` (the `sequitur-scrum` workspace folder, one level above this repo). They apply here; this file only adds SpeakerSplitter specifics.
 
@@ -19,6 +19,6 @@ Shared ADO, work item, git, commit and PR conventions live in the workspace-leve
 ## Code Layout
 
 - Source in `code/`, tests in `tests/`, solution `SpeakerSplitter.sln`.
-- `SpeakerSplitter.Core` is the UI-free engine (`SplitterEngine`); it must not reference `System.Console` or any UI framework (enforced by `CoreIsolationTests`). The console app and the planned WPF app are thin hosts over it.
+- `SpeakerSplitter.Core` is the UI-free engine (`SplitterEngine`); it must not reference `System.Console` or any UI framework (enforced by `CoreIsolationTests`). The command-line host (`SpeakerSplitter.CLI`) and the planned WPF app are thin hosts over it.
 - Shared build settings in `Directory.Build.props` (net10.0-windows, nullable, warnings as errors).
 - Design rule: capture the DEFAULT render endpoint (WASAPI loopback) and only play to OTHER endpoints; never use the capture endpoint as an output.

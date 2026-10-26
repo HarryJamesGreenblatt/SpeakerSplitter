@@ -3,10 +3,20 @@ using NAudio.CoreAudioApi;
 
 namespace SpeakerSplitter;
 
+/// <summary>One active render endpoint as listed by <see cref="EndpointCatalog"/>.</summary>
+/// <param name="Id">The endpoint's stable device ID.</param>
+/// <param name="FriendlyName">The name Windows shows in its Sound settings.</param>
+/// <param name="IsDefault">True for the default multimedia render endpoint, the one loopback captures.</param>
+/// <param name="Format">The endpoint's mix format, or <see langword="null"/> when it could not be read.</param>
 public sealed record EndpointInfo(string Id, string FriendlyName, bool IsDefault, MixFormatInfo? Format);
 
+/// <summary>Lists the render endpoints a session can capture from or mirror to.</summary>
 public static class EndpointCatalog
 {
+    /// <summary>
+    /// Lists every active render endpoint, flagging the default one. A device whose mix format cannot be read
+    /// is still listed, with a <see langword="null"/> format.
+    /// </summary>
     public static IReadOnlyList<EndpointInfo> ListActive()
     {
         using var enumerator = new MMDeviceEnumerator();
@@ -15,6 +25,7 @@ public static class EndpointCatalog
         // DeviceState.Active excludes disabled, unplugged and not-present endpoints.
         var devices = enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active);
 
+        // Read each device's format while it is open, then release it before moving on.
         var endpoints = new List<EndpointInfo>(devices.Count);
         foreach (var device in devices)
         {
@@ -27,8 +38,11 @@ public static class EndpointCatalog
         return endpoints;
     }
 
-    // Activating the audio client can fail per device (busy, exclusive mode, driver fault).
-    // A null result is shown as n/a so one bad device never hides the others.
+    /// <summary>
+    /// Reads a device's mix format. Activating the audio client can fail per device (busy, exclusive mode,
+    /// driver fault), so a failure yields <see langword="null"/> and one bad device never hides the others.
+    /// </summary>
+    /// <param name="device">The device to read.</param>
     private static MixFormatInfo? ReadMixFormat(MMDevice device)
     {
         try
@@ -41,8 +55,12 @@ public static class EndpointCatalog
         }
     }
 
-    // Role.Multimedia is the role WasapiLoopbackCapture uses for its default device,
-    // so the endpoint flagged here is the one M2 will capture. Role.Console can differ.
+    /// <summary>
+    /// Finds the default render endpoint's ID, or <see langword="null"/> when there is none. It asks for
+    /// <see cref="Role.Multimedia"/>, the role <c>WasapiLoopbackCapture</c> uses, so the endpoint flagged here is
+    /// the one that gets captured; <see cref="Role.Console"/> can differ.
+    /// </summary>
+    /// <param name="enumerator">The enumerator to query.</param>
     private static string? GetDefaultRenderId(MMDeviceEnumerator enumerator)
     {
         try

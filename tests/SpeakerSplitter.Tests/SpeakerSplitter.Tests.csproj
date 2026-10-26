@@ -13,7 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\code\SpeakerSplitter.Core\SpeakerSplitter.Core.csproj" />
-    <ProjectReference Include="..\..\code\SpeakerSplitter.Console\SpeakerSplitter.Console.csproj" />
+    <ProjectReference Include="..\..\code\SpeakerSplitter.CLI\SpeakerSplitter.CLI.csproj" />
   </ItemGroup>
 
   <ItemGroup>

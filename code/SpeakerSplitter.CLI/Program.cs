@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using NAudio;
 using SpeakerSplitter;
 
+// Print the banner and usage.
 var version = Assembly.GetExecutingAssembly().GetName().Version;
 
 Console.WriteLine($"SpeakerSplitter {version}");
@@ -10,6 +11,7 @@ Console.WriteLine("Mirrors Windows system audio to additional playback devices."
 Console.WriteLine(CommandLine.Usage);
 Console.WriteLine();
 
+// Read the command line; a bad argument ends the run with exit code 2.
 var options = CommandLine.Parse(args);
 if (options.Error is not null)
 {
@@ -17,12 +19,14 @@ if (options.Error is not null)
     return 2;
 }
 
+// List the active render endpoints, so the user can see what to mirror to.
 var endpoints = EndpointCatalog.ListActive();
 Console.WriteLine($"Active render endpoints ({endpoints.Count}):");
 Console.WriteLine();
 EndpointTable.Write(Console.Out, endpoints);
 Console.WriteLine();
 
+// Resolve any --device requests into endpoints; the default endpoint, which is the one captured, is refused.
 var selection = DeviceSelection.Select(endpoints, options.Devices);
 
 // Without --device on a real console, ask. Redirected input (scripts, tests) never prompts.
@@ -43,6 +47,7 @@ while (interactive)
     }
 }
 
+// Anything that could not be honoured ends the run with exit code 2.
 if (!selection.IsValid)
 {
     foreach (var error in selection.Errors)
@@ -53,6 +58,7 @@ if (!selection.IsValid)
     return 2;
 }
 
+// Echo the chosen devices.
 if (selection.Accepted.Count > 0)
 {
     Console.WriteLine("Selected output devices:");
@@ -64,6 +70,7 @@ if (selection.Accepted.Count > 0)
     Console.WriteLine();
 }
 
+// Open loopback capture on the default endpoint and compare its format with what the table showed.
 using var engine = SplitterEngine.ForDefaultOutput();
 var captureFormat = engine.CaptureFormat;
 var defaultFormat = endpoints.FirstOrDefault(e => e.IsDefault)?.Format;
@@ -73,12 +80,14 @@ Console.WriteLine(captureFormat == defaultFormat
     ? "Matches the default endpoint's mix format."
     : "Does NOT match the default endpoint's mix format.");
 
+// The peak meter reads only 32-bit float and 16-bit PCM, so any other capture format ends the run.
 if (!PeakMeter.IsSupported(captureFormat))
 {
     Console.Error.WriteLine($"The peak meter supports 32-bit float and 16-bit PCM, not {captureFormat.Describe()}.");
     return 1;
 }
 
+// Stop on Enter or Ctrl+C: either one releases the main thread, which then shuts the engine down.
 using var quit = new ManualResetEventSlim();
 Console.CancelKeyPress += (_, e) =>
 {
@@ -93,6 +102,7 @@ new Thread(() =>
 })
 { IsBackground = true }.Start();
 
+// A session can also end on its own (a device is lost or the default output changes); keep the reason.
 string? lossReason = null;
 void Lose(string reason)
 {
@@ -103,9 +113,11 @@ void Lose(string reason)
     }
 }
 
+// Run the session: start the engine, draw the meter and fill log, and wait for a stop request or a loss.
 engine.Lost += Lose;
 try
 {
+    // The engine re-checks the devices before opening anything, then mirrors capture to them.
     engine.Start(selection.Accepted);
     Console.WriteLine();
     Console.WriteLine($"Capturing the default endpoint; mirroring to {selection.Accepted.Count} other device(s).");
@@ -149,6 +161,7 @@ try
 }
 catch (SplitterStartException exception)
 {
+    // A device or the default output changed after it was listed, so nothing was started: exit code 2.
     if (exception.Reason == StartFailure.DefaultOutputChanged)
     {
         Console.Error.WriteLine($"{exception.Message} Restart SpeakerSplitter.");
@@ -167,6 +180,7 @@ catch (SplitterStartException exception)
 catch (Exception exception) when (exception is COMException or MmException or AggregateException
     or InvalidOperationException or NotSupportedException or ArgumentException)
 {
+    // Any other audio failure ends the run with exit code 1.
     Console.Error.WriteLine($"Audio session failed ({exception.GetType().Name}: {exception.Message}).");
     return 1;
 }
@@ -186,6 +200,7 @@ finally
     }
 }
 
+// Report how the session ended: a requested stop exits 0, a loss exits 1.
 Console.WriteLine();
 if (lossReason is not null)
 {

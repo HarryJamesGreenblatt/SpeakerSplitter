@@ -2,21 +2,31 @@ using System.Globalization;
 
 namespace SpeakerSplitter;
 
+/// <summary>The outcome of turning a user's device requests into endpoints.</summary>
+/// <param name="Accepted">The endpoints that were chosen, in the order requested.</param>
+/// <param name="Errors">One readable message per request that could not be honoured.</param>
 public sealed record SelectionResult(IReadOnlyList<EndpointInfo> Accepted, IReadOnlyList<string> Errors)
 {
+    /// <summary>True when every request was honoured.</summary>
     public bool IsValid => Errors.Count == 0;
 }
 
+/// <summary>Turns what a user typed or passed on the command line into the endpoints to mirror to.</summary>
 public static class DeviceSelection
 {
-    // A request is the 1-based number EndpointTable prints, or a case-insensitive part of a device ID.
-    // The default endpoint is the one loopback captures. An output on it would double or feed back the
-    // audio, so it is refused here, before any output exists.
+    /// <summary>
+    /// Resolves each request to an endpoint. A request is the 1-based number <see cref="EndpointTable"/> prints,
+    /// or a case-insensitive part of a device ID. The default endpoint is the one loopback captures, so an
+    /// output on it would double or feed back the audio; it is refused here, before any output exists.
+    /// </summary>
+    /// <param name="endpoints">The active endpoints, in the order the table lists them.</param>
+    /// <param name="requests">What the user asked for.</param>
     public static SelectionResult Select(IReadOnlyList<EndpointInfo> endpoints, IEnumerable<string> requests)
     {
         var accepted = new List<EndpointInfo>();
         var errors = new List<string>();
 
+        // Check every request and keep going after a bad one, so the user sees all the problems at once.
         foreach (var request in requests)
         {
             var (device, error) = Resolve(endpoints, request.Trim());
@@ -43,10 +53,18 @@ public static class DeviceSelection
         return new SelectionResult(accepted, errors);
     }
 
-    // Splits what a user typed at the prompt ("2,3" or "2 3") into separate requests.
+    /// <summary>Splits what a user typed at the prompt (<c>2,3</c> or <c>2 3</c>) into separate requests.</summary>
+    /// <param name="line">The line typed, or <see langword="null"/> when input ended.</param>
     public static IReadOnlyList<string> SplitList(string? line) =>
         (line ?? "").Split([',', ' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
 
+    /// <summary>
+    /// Finds the endpoint one request refers to: by its table number, or by a part of its ID that matches
+    /// exactly one device.
+    /// </summary>
+    /// <param name="endpoints">The active endpoints, in the order the table lists them.</param>
+    /// <param name="request">The trimmed request.</param>
+    /// <returns>The endpoint, or <see langword="null"/> with a readable error.</returns>
     private static (EndpointInfo? Device, string? Error) Resolve(IReadOnlyList<EndpointInfo> endpoints, string request)
     {
         if (request.Length == 0)
@@ -54,6 +72,7 @@ public static class DeviceSelection
             return (null, "A device was selected with an empty value.");
         }
 
+        // A number refers to a row of the table.
         if (int.TryParse(request, NumberStyles.None, CultureInfo.InvariantCulture, out var number))
         {
             return number >= 1 && number <= endpoints.Count
@@ -61,6 +80,7 @@ public static class DeviceSelection
                 : (null, $"There is no device number {number}. Choose a number from 1 to {endpoints.Count}.");
         }
 
+        // Anything else must identify exactly one device by part of its ID.
         var matches = endpoints
             .Where(endpoint => endpoint.Id.Contains(request, StringComparison.OrdinalIgnoreCase))
             .ToList();
