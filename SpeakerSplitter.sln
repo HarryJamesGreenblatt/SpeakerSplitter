@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeakerSplitter.CLI", "code
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeakerSplitter.Core", "code\SpeakerSplitter.Core\SpeakerSplitter.Core.csproj", "{62AFD45C-21F6-4342-9DF1-1B0A218E96D7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeakerSplitter.Wpf", "code\SpeakerSplitter.Wpf\SpeakerSplitter.Wpf.csproj", "{C4FFF379-D8FD-4201-938B-409D4B481DBE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -59,6 +61,18 @@ Global
 		{62AFD45C-21F6-4342-9DF1-1B0A218E96D7}.Release|x64.Build.0 = Release|Any CPU
 		{62AFD45C-21F6-4342-9DF1-1B0A218E96D7}.Release|x86.ActiveCfg = Release|Any CPU
 		{62AFD45C-21F6-4342-9DF1-1B0A218E96D7}.Release|x86.Build.0 = Release|Any CPU
+		{C4FFF379-D8FD-4201-938B-409D4B481DBE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C4FFF379-D8FD-4201-938B-409D4B481DBE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C4FFF379-D8FD-4201-938B-409D4B481DBE}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C4FFF379-D8FD-4201-938B-409D4B481DBE}.Debug|x64.Build.0 = Debug|Any CPU
+		{C4FFF379-D8FD-4201-938B-409D4B481DBE}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C4FFF379-D8FD-4201-938B-409D4B481DBE}.Debug|x86.Build.0 = Debug|Any CPU
+		{C4FFF379-D8FD-4201-938B-409D4B481DBE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C4FFF379-D8FD-4201-938B-409D4B481DBE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C4FFF379-D8FD-4201-938B-409D4B481DBE}.Release|x64.ActiveCfg = Release|Any CPU
+		{C4FFF379-D8FD-4201-938B-409D4B481DBE}.Release|x64.Build.0 = Release|Any CPU
+		{C4FFF379-D8FD-4201-938B-409D4B481DBE}.Release|x86.ActiveCfg = Release|Any CPU
+		{C4FFF379-D8FD-4201-938B-409D4B481DBE}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -67,5 +81,6 @@ Global
 		{BFF49003-BB29-4FC0-96E0-D04A6F05C1BC} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{CBB4AB66-934B-42C1-9923-0E27501AF442} = {314C6247-30EA-3492-19B6-DF847E3B326F}
 		{62AFD45C-21F6-4342-9DF1-1B0A218E96D7} = {314C6247-30EA-3492-19B6-DF847E3B326F}
+		{C4FFF379-D8FD-4201-938B-409D4B481DBE} = {314C6247-30EA-3492-19B6-DF847E3B326F}
 	EndGlobalSection
 EndGlobal

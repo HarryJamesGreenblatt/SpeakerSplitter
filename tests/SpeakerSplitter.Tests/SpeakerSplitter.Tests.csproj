@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <IsPackable>false</IsPackable>
+    <UseWPF>true</UseWPF>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,9 +15,11 @@
   <ItemGroup>
     <ProjectReference Include="..\..\code\SpeakerSplitter.Core\SpeakerSplitter.Core.csproj" />
     <ProjectReference Include="..\..\code\SpeakerSplitter.CLI\SpeakerSplitter.CLI.csproj" />
+    <ProjectReference Include="..\..\code\SpeakerSplitter.Wpf\SpeakerSplitter.Wpf.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <Using Include="System.IO" />
     <Using Include="Xunit" />
   </ItemGroup>
 

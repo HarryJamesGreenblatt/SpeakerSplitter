@@ -1,0 +1,41 @@
+<Window x:Class="SpeakerSplitter.Wpf.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SpeakerSplitter" Width="720" Height="480"
+        MinWidth="500" MinHeight="360">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <TextBlock Text="SpeakerSplitter" FontSize="24" FontWeight="SemiBold" />
+        <TextBlock Grid.Row="1" Margin="0,12,0,16" TextWrapping="Wrap"
+                   Text="Choose additional devices to mirror system audio. The default output keeps playing natively." />
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Devices}"
+                          AutomationProperties.AutomationId="DeviceList">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <CheckBox Margin="0,6" Content="{Binding DisplayName}"
+                                  IsChecked="{Binding IsSelected}"
+                                  IsEnabled="{Binding CanSelect}"
+                                  ToolTip="{Binding SelectionHint}"
+                                  ToolTipService.ShowOnDisabled="True"
+                                  AutomationProperties.Name="{Binding DisplayName}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+        <TextBlock Grid.Row="3" Margin="0,16,0,0" Text="{Binding Status}"
+                   TextWrapping="Wrap" AutomationProperties.AutomationId="Status" />
+        <StackPanel Grid.Row="4" Margin="0,16,0,0" Orientation="Horizontal">
+            <Button Content="{Binding ActionText}" Command="{Binding ToggleCommand}"
+                    MinWidth="100" AutomationProperties.AutomationId="TogglePlayback" />
+            <Button Content="Refresh Devices" Command="{Binding RefreshCommand}"
+                    Margin="12,0,0,0" AutomationProperties.AutomationId="RefreshDevices" />
+        </StackPanel>
+    </Grid>
+</Window>
