@@ -36,7 +36,11 @@ public sealed class PlaybackSession : IPlaybackSession
     #region Methods
 
     /// <inheritdoc />
-    public void Start(IReadOnlyList<EndpointInfo> targets) => _engine.Start(targets);
+    public void Start(IReadOnlyList<EndpointInfo> targets, IReadOnlyDictionary<string, float> initialVolumes) =>
+        _engine.Start(targets, initialVolumes);
+
+    /// <inheritdoc />
+    public void SetVolume(string endpointId, float volume) => _engine.SetOutputVolume(endpointId, volume);
 
     /// <inheritdoc />
     public void Stop() => _engine.Stop();

@@ -3,6 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="SpeakerSplitter" Width="720" Height="480"
         MinWidth="500" MinHeight="360">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="SelectedVisibility" />
+    </Window.Resources>
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -19,12 +22,31 @@
                           AutomationProperties.AutomationId="DeviceList">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <CheckBox Margin="0,6" Content="{Binding DisplayName}"
+                        <StackPanel Margin="0,6,0,12">
+                            <CheckBox Content="{Binding DisplayName}"
                                   IsChecked="{Binding IsSelected}"
                                   IsEnabled="{Binding CanSelect}"
                                   ToolTip="{Binding SelectionHint}"
                                   ToolTipService.ShowOnDisabled="True"
                                   AutomationProperties.Name="{Binding DisplayName}" />
+                            <Grid Margin="24,8,0,0"
+                                  Visibility="{Binding IsSelected, Converter={StaticResource SelectedVisibility}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="48" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="App-only volume" VerticalAlignment="Center" />
+                                <Slider Grid.Column="1" Margin="12,0" Minimum="0" Maximum="100"
+                                        Value="{Binding AppVolumePercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        IsEnabled="{Binding CanAdjustVolume}"
+                                        TickFrequency="1" IsSnapToTickEnabled="True"
+                                        ToolTip="Adjusts only SpeakerSplitter's stream. Windows device volume and other applications are unchanged."
+                                        AutomationProperties.Name="{Binding VolumeLabel}" />
+                                <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                                           Text="{Binding AppVolumePercent, StringFormat={}{0:0}%}" />
+                            </Grid>
+                        </StackPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>

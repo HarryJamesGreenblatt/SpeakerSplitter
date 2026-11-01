@@ -116,6 +116,42 @@ public class SplitterEngineTests
     }
 
     [Fact]
+    public void SetOutputVolume_ZeroGainKeepsCaptureAndBothPlaybackPipelinesRunning()
+    {
+        using var rig = new Rig();
+        rig.Engine.Start([Headphones, Monitor], new Dictionary<string, float> { [Headphones.Id] = 0f });
+        var packet = FloatBytes(Enumerable.Repeat(0.5f, 960).ToArray());
+        rig.Capture.Raise(packet);
+        var first = new byte[packet.Length];
+        var second = new byte[packet.Length];
+
+        Assert.Equal(first.Length, rig.Outputs[0].Provider!.Read(first, 0, first.Length));
+        Assert.Equal(second.Length, rig.Outputs[1].Provider!.Read(second, 0, second.Length));
+
+        Assert.All(first, value => Assert.Equal((byte)0, value));
+        Assert.Equal(packet, second);
+        Assert.True(rig.Capture.Started);
+        Assert.Equal(0, rig.Capture.StopCalls);
+        Assert.All(rig.Outputs, output => Assert.Equal(PlaybackState.Playing, output.PlaybackState));
+        rig.Engine.SetOutputVolume(Headphones.Id, 1f);
+        rig.Capture.Raise(packet);
+        rig.Outputs[0].Provider!.Read(first, 0, first.Length);
+        Assert.Equal(0.5f, MemoryMarshal.Cast<byte, float>(first)[^1], 5);
+        Assert.Equal(2, rig.Engine.BuffersReceived);
+    }
+
+    [Fact]
+    public void SetOutputVolume_RejectsInactivePipelinesAndThePrimaryEndpoint()
+    {
+        using var rig = new Rig();
+        Assert.Throws<InvalidOperationException>(() => rig.Engine.SetOutputVolume(Headphones.Id, 0f));
+        rig.Engine.Start([Headphones]);
+        Assert.Throws<ArgumentException>(() => rig.Engine.SetOutputVolume(Speakers.Id, 0f));
+        rig.Engine.Stop();
+        Assert.Throws<InvalidOperationException>(() => rig.Engine.SetOutputVolume(Headphones.Id, 0f));
+    }
+
+    [Fact]
     public void Lost_IsRaisedOnceWithTheFirstReason()
     {
         using var rig = new Rig();

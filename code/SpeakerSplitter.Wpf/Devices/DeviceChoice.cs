@@ -14,6 +14,12 @@ public sealed class DeviceChoice : INotifyPropertyChanged
     /// <summary>Whether session startup or playback prevents changing this selection.</summary>
     private bool _isLocked;
 
+    /// <summary>The in-memory app-only gain percentage, initially 100; never persisted to disk.</summary>
+    private double _appVolumePercent = 100;
+
+    /// <summary>Whether startup, shutdown or unavailable endpoints prevent gain changes.</summary>
+    private bool _isVolumeLocked;
+
     #endregion
 
     #region Properties
@@ -28,6 +34,56 @@ public sealed class DeviceChoice : INotifyPropertyChanged
 
     /// <summary>False for the default endpoint or while selection is locked by the controller.</summary>
     public bool CanSelect => !Endpoint.IsDefault && !_isLocked;
+
+    /// <summary>Allows gain adjustment for selected secondary streams, including while selection is locked.</summary>
+    public bool CanAdjustVolume => IsSelected && !Endpoint.IsDefault && !_isVolumeLocked;
+
+    /// <summary>The accessible label identifying this as stream gain, not Windows endpoint volume.</summary>
+    public string VolumeLabel => $"App-only volume: {Endpoint.FriendlyName}";
+
+    /// <summary>App-only gain in percent, retained while this window is open; changes never affect the primary.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The percentage is non-finite or outside 0–100.</exception>
+    /// <exception cref="InvalidOperationException">The primary or a locked volume control is being changed.</exception>
+    public double AppVolumePercent
+    {
+        get => _appVolumePercent;
+        set
+        {
+            if (!double.IsFinite(value) || value < 0 || value > 100)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "App-only volume must be between 0 and 100.");
+            }
+
+            if (_appVolumePercent == value)
+            {
+                return;
+            }
+
+            if (Endpoint.IsDefault || _isVolumeLocked)
+            {
+                throw new InvalidOperationException("App-only volume is disabled for this device.");
+            }
+
+            _appVolumePercent = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(AppVolumePercent)));
+        }
+    }
+
+    /// <summary>Locks gain during lifecycle transitions without locking live sliders during playback.</summary>
+    internal bool IsVolumeLocked
+    {
+        get => _isVolumeLocked;
+        set
+        {
+            if (_isVolumeLocked == value)
+            {
+                return;
+            }
+
+            _isVolumeLocked = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanAdjustVolume)));
+        }
+    }
 
     /// <summary>Locks selection during startup/playback or when the endpoint list is unavailable.</summary>
     internal bool IsLocked
@@ -69,6 +125,7 @@ public sealed class DeviceChoice : INotifyPropertyChanged
 
             _isSelected = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanAdjustVolume)));
         }
     }
 

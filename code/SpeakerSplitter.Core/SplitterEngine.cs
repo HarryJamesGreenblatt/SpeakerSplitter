@@ -186,10 +186,11 @@ public sealed class SplitterEngine : IDisposable
     /// since the host listed them. Nothing is left open when this throws.
     /// </summary>
     /// <param name="targets">The endpoints to mirror to.</param>
+    /// <param name="initialVolumes">Initial app-only gains keyed by selected endpoint ID; omitted means unity gain.</param>
     /// <exception cref="SplitterStartException">The default output or the targets no longer hold.</exception>
     /// <exception cref="NotSupportedException">The capture format cannot be metered.</exception>
     /// <exception cref="InvalidOperationException">The engine has already been started.</exception>
-    public void Start(IEnumerable<EndpointInfo> targets)
+    public void Start(IEnumerable<EndpointInfo> targets, IReadOnlyDictionary<string, float>? initialVolumes = null)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
         if (_started)
@@ -216,7 +217,7 @@ public sealed class SplitterEngine : IDisposable
             var chosen = Resolve(_listEndpoints(), requested);
 
             // Open and start the outputs first, so they are ready to play the moment capture delivers audio.
-            var outputs = new OutputFanOut(_source.WaveFormat, CaptureEndpointId, chosen, _createOutput);
+            var outputs = new OutputFanOut(_source.WaveFormat, CaptureEndpointId, chosen, _createOutput, initialVolumes);
             _outputs = outputs;
             outputs.Lost += Lose;
             outputs.Start();
@@ -242,6 +243,23 @@ public sealed class SplitterEngine : IDisposable
 
             throw;
         }
+    }
+
+    /// <summary>Changes one active mirrored stream's app-only gain; call on the host's lifecycle thread.</summary>
+    /// <param name="endpointId">The selected secondary endpoint ID.</param>
+    /// <param name="volume">Linear gain from 0 to 1; no Windows endpoint/session volume is changed.</param>
+    /// <exception cref="InvalidOperationException">There is no active output pipeline.</exception>
+    /// <exception cref="ArgumentException">The endpoint is not mirrored.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The gain is non-finite or outside 0–1.</exception>
+    public void SetOutputVolume(string endpointId, float volume)
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        if (Volatile.Read(ref _released) != 0 || _outputs is null)
+        {
+            throw new InvalidOperationException("Start mirroring before changing an output's app-only volume.");
+        }
+
+        _outputs.SetVolume(endpointId, volume);
     }
 
     /// <summary>

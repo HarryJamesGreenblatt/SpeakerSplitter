@@ -84,6 +84,46 @@ public class ControllerViewModelTests
     }
 
     [Fact]
+    public void AppVolume_InitializesSelectedStreamsAndRemainsAdjustableWhileRunning()
+    {
+        var session = new FakeSession();
+        using var model = new ControllerViewModel(() => [Primary, Secondary], () => session);
+        Assert.False(model.Devices[0].CanAdjustVolume);
+        Assert.Throws<InvalidOperationException>(() => model.Devices[0].AppVolumePercent = 50);
+        model.Devices[1].IsSelected = true;
+        model.Devices[1].AppVolumePercent = 25;
+
+        model.ToggleCommand.Execute(null);
+
+        Assert.Equal(0.25f, session.InitialVolumes[Secondary.Id]);
+        Assert.True(model.Devices[1].CanAdjustVolume);
+        Assert.False(model.Devices[1].CanSelect);
+        model.Devices[1].AppVolumePercent = 50;
+        Assert.Equal(0.5f, session.Volumes[Secondary.Id]);
+        model.Stop();
+        model.RefreshDevices();
+        Assert.Equal(50, model.Devices[1].AppVolumePercent);
+        Assert.Throws<ArgumentOutOfRangeException>(() => model.Devices[1].AppVolumePercent = double.NaN);
+    }
+
+    [Fact]
+    public void AppVolume_WhenAGainWriteFails_StopsAndReportsTheAffectedDevice()
+    {
+        var session = new FakeSession { FailVolume = true };
+        using var model = new ControllerViewModel(() => [Primary, Secondary], () => session);
+        model.Devices[1].IsSelected = true;
+        model.ToggleCommand.Execute(null);
+
+        model.Devices[1].AppVolumePercent = 50;
+
+        Assert.False(model.IsRunning);
+        Assert.Contains("Secondary", model.Status);
+        Assert.Contains("gain failed", model.Status);
+        Assert.Equal(1, session.StopCalls);
+        Assert.Equal(1, session.DisposeCalls);
+    }
+
+    [Fact]
     public void ToggleCommand_WhenStartFails_ReleasesSessionAndReportsTheFailure()
     {
         var session = new FakeSession { FailStart = true };
@@ -256,14 +296,18 @@ public class ControllerViewModelTests
         public Exception? StartError { get; init; }
         public bool FailStop { get; init; }
         public bool FailDispose { get; init; }
+        public bool FailVolume { get; init; }
         public int StopCalls { get; private set; }
         public int DisposeCalls { get; private set; }
         public IReadOnlyList<EndpointInfo> Targets { get; private set; } = [];
+        public IReadOnlyDictionary<string, float> InitialVolumes { get; private set; } = new Dictionary<string, float>();
+        public Dictionary<string, float> Volumes { get; } = new();
         public event Action<string>? Lost;
 
-        public void Start(IReadOnlyList<EndpointInfo> targets)
+        public void Start(IReadOnlyList<EndpointInfo> targets, IReadOnlyDictionary<string, float> initialVolumes)
         {
             Targets = targets;
+            InitialVolumes = initialVolumes;
             if (StartError is not null)
             {
                 throw StartError;
@@ -273,6 +317,16 @@ public class ControllerViewModelTests
             {
                 throw new InvalidOperationException("device changed");
             }
+        }
+
+        public void SetVolume(string endpointId, float volume)
+        {
+            if (FailVolume)
+            {
+                throw new InvalidOperationException("gain failed");
+            }
+
+            Volumes[endpointId] = volume;
         }
 
         public void Stop()

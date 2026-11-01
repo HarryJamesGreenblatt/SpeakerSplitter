@@ -49,13 +49,15 @@ public sealed class OutputFanOut : IDisposable
     /// <param name="captureEndpointId">The endpoint that is being captured; it must never also be an output.</param>
     /// <param name="endpoints">The endpoints to mirror to.</param>
     /// <param name="createOutput">Creates a player for an endpoint; defaults to shared-mode WASAPI, and lets tests substitute a fake.</param>
+    /// <param name="initialVolumes">Initial app-only gains keyed by selected endpoint ID; missing entries default to 1.</param>
     /// <exception cref="ArgumentException">An endpoint is the default or capture endpoint.</exception>
     /// <exception cref="InvalidOperationException">An output could not be initialized.</exception>
     public OutputFanOut(
         WaveFormat format,
         string captureEndpointId,
         IReadOnlyList<EndpointInfo> endpoints,
-        Func<EndpointInfo, IWavePlayer>? createOutput = null)
+        Func<EndpointInfo, IWavePlayer>? createOutput = null,
+        IReadOnlyDictionary<string, float>? initialVolumes = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(captureEndpointId);
 
@@ -70,12 +72,27 @@ public sealed class OutputFanOut : IDisposable
             }
         }
 
+        var volumes = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+        if (initialVolumes is not null)
+        {
+            foreach (var (id, volume) in initialVolumes)
+            {
+                StreamVolumeProvider.ValidateVolume(volume);
+                if (!endpoints.Any(endpoint => string.Equals(endpoint.Id, id, StringComparison.OrdinalIgnoreCase))
+                    || !volumes.TryAdd(id, volume))
+                {
+                    throw new ArgumentException($"'{id}' must identify one selected mirrored endpoint.", nameof(initialVolumes));
+                }
+            }
+        }
+
         // Open the outputs; if one fails, release the ones already open and report both failures if cleanup also fails.
         try
         {
             foreach (var endpoint in endpoints)
             {
-                _outputs.Add(new DeviceOutput(endpoint, format, createOutput, OnLost));
+                var volume = volumes.TryGetValue(endpoint.Id, out var initial) ? initial : 1f;
+                _outputs.Add(new DeviceOutput(endpoint, format, createOutput, OnLost, volume));
             }
         }
         catch (Exception initializationError)
@@ -120,6 +137,23 @@ public sealed class OutputFanOut : IDisposable
         {
             output.Buffer.AddSamples(buffer, 0, count);
         }
+    }
+
+    /// <summary>Changes only one mirrored stream's gain; endpoint master volume is never modified.</summary>
+    /// <param name="endpointId">The ID of a selected mirrored endpoint, compared case-insensitively.</param>
+    /// <param name="volume">Linear app-only gain from 0 (silence) to 1 (unchanged).</param>
+    /// <exception cref="ObjectDisposedException">The outputs have been released.</exception>
+    /// <exception cref="ArgumentException">The endpoint is not one of the mirrored outputs.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The gain is non-finite or outside 0–1.</exception>
+    public void SetVolume(string endpointId, float volume)
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        ArgumentException.ThrowIfNullOrWhiteSpace(endpointId);
+        StreamVolumeProvider.ValidateVolume(volume);
+        var output = _outputs.FirstOrDefault(
+            output => string.Equals(output.Id, endpointId, StringComparison.OrdinalIgnoreCase))
+            ?? throw new ArgumentException($"'{endpointId}' is not a mirrored output.", nameof(endpointId));
+        output.Gain.Volume = volume;
     }
 
     /// <summary>Reports each device's buffer fill and counters. Safe to call from any thread, including after <see cref="Dispose"/>.</summary>
@@ -204,6 +238,12 @@ public sealed class OutputFanOut : IDisposable
         /// <summary>The player that renders this device's audio.</summary>
         public IWavePlayer Player { get; }
 
+        /// <summary>The per-stream gain stage, independent of the player's endpoint volume.</summary>
+        public StreamVolumeProvider Gain { get; }
+
+        /// <summary>The stable endpoint ID used by volume controls.</summary>
+        public string Id => _endpoint.Id;
+
         /// <summary>The device's friendly name.</summary>
         public string Name => _endpoint.FriendlyName;
 
@@ -222,12 +262,14 @@ public sealed class OutputFanOut : IDisposable
         /// <param name="format">The capture format, which the buffer holds.</param>
         /// <param name="createOutput">Creates the player; <see langword="null"/> opens a shared-mode <c>WasapiOut</c>.</param>
         /// <param name="lost">Called when the player stops unexpectedly.</param>
+        /// <param name="volume">The initial app-only gain, applied before playback begins.</param>
         /// <exception cref="InvalidOperationException">The output could not be opened or initialized.</exception>
         public DeviceOutput(
             EndpointInfo endpoint,
             WaveFormat format,
             Func<EndpointInfo, IWavePlayer>? createOutput,
-            Action<string> lost)
+            Action<string> lost,
+            float volume)
         {
             _endpoint = endpoint;
             _lost = lost;
@@ -256,7 +298,8 @@ public sealed class OutputFanOut : IDisposable
                     Conversion = FormatConversion.Describe(format, device);
                 }
 
-                Player.Init(source);
+                Gain = new StreamVolumeProvider(source, volume);
+                Player.Init(Gain);
                 Player.PlaybackStopped += OnPlaybackStopped;
             }
             catch (Exception initializationError)

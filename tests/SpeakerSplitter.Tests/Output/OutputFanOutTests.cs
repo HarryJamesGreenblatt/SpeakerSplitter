@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using NAudio.Wave;
 using SpeakerSplitter.Devices;
 using SpeakerSplitter.Output;
@@ -29,7 +30,7 @@ public class OutputFanOutTests
 
         foreach (var player in players)
         {
-            var provider = Assert.IsType<MeteredBuffer>(player.Provider);
+            var provider = player.Provider!;
             Assert.Same(Format, provider.WaveFormat);
             Assert.Equal(PlaybackState.Playing, player.PlaybackState);
             var actual = new byte[16];
@@ -70,11 +71,53 @@ public class OutputFanOutTests
         using var outputs = new OutputFanOut(
             Format, "capture", [matching, mismatched, unknown], endpoint => players[endpoint.Id]);
 
-        Assert.IsType<MeteredBuffer>(players["usb"].Provider);
-        Assert.IsType<MeteredBuffer>(players["old"].Provider);
-        Assert.IsNotType<MeteredBuffer>(players["tv"].Provider);
+        Assert.Same(Format, players["usb"].Provider!.WaveFormat);
+        Assert.Same(Format, players["old"].Provider!.WaveFormat);
         Assert.Equal(44100, players["tv"].Provider!.WaveFormat.SampleRate);
         Assert.Equal(["TV: converting 48000 Hz 2 ch -> 44100 Hz 2 ch"], outputs.Conversions);
+    }
+
+    [Fact]
+    public void Constructor_RejectsGainsForUnselectedOrCaptureEndpointsBeforeOpeningOutputs()
+    {
+        var opened = 0;
+        Assert.Throws<ArgumentException>(() => new OutputFanOut(
+            Format, "capture", [Headphones], _ =>
+            {
+                opened++;
+                return new FakePlayer();
+            }, new Dictionary<string, float> { ["capture"] = 0.5f }));
+
+        Assert.Equal(0, opened);
+    }
+
+    [Fact]
+    public void SetVolume_ChangesOnlyTheChosenStreamAndNeverWritesPlayerVolume()
+    {
+        var first = new FakePlayer();
+        var second = new FakePlayer();
+        using var outputs = new OutputFanOut(Format, "capture", [Headphones, Monitor],
+            endpoint => endpoint.Id == Headphones.Id ? first : second,
+            new Dictionary<string, float> { [Headphones.Id] = 0.25f });
+        outputs.Start();
+        var packet = MemoryMarshal.AsBytes(Enumerable.Repeat(0.8f, 960).ToArray().AsSpan()).ToArray();
+        outputs.AddSamples(packet, packet.Length);
+        var initial = new byte[packet.Length];
+        first.Provider!.Read(initial, 0, initial.Length);
+        second.Provider!.Read(new byte[packet.Length], 0, packet.Length);
+        Assert.All(MemoryMarshal.Cast<byte, float>(initial).ToArray(), sample => Assert.Equal(0.2f, sample, 5));
+
+        outputs.SetVolume(Headphones.Id.ToUpperInvariant(), 0.5f);
+        outputs.AddSamples(packet, packet.Length);
+        var adjusted = new byte[packet.Length];
+        var unchanged = new byte[packet.Length];
+        first.Provider.Read(adjusted, 0, adjusted.Length);
+        second.Provider.Read(unchanged, 0, unchanged.Length);
+
+        Assert.Equal(0.4f, MemoryMarshal.Cast<byte, float>(adjusted)[^1], 5);
+        Assert.Equal(packet, unchanged);
+        Assert.All(outputs.Snapshot(), device => Assert.Equal(0, device.Stats.BufferedBytes));
+        Assert.Throws<ArgumentException>(() => outputs.SetVolume("capture", 0.5f));
     }
 
     [Fact]
@@ -139,16 +182,16 @@ public class OutputFanOutTests
         var active = new FakePlayer();
         using var outputs = new OutputFanOut(
             Format, "capture", [Headphones, Monitor], endpoint => endpoint == Headphones ? stalled : active);
-        var stalledBuffer = Assert.IsType<MeteredBuffer>(stalled.Provider);
-        var activeBuffer = Assert.IsType<MeteredBuffer>(active.Provider);
-        var packet = new byte[stalledBuffer.Stats.BufferLength];
+        var capacity = outputs.Snapshot()[0].Stats.BufferLength;
+        var activeBuffer = active.Provider!;
+        var packet = new byte[capacity];
         packet.AsSpan().Fill(42);
         outputs.AddSamples(packet, packet.Length);
         activeBuffer.Read(new byte[packet.Length], 0, packet.Length);
 
         outputs.AddSamples([1, 2, 3, 4, 5, 6, 7, 8], 8);
 
-        Assert.Equal(stalledBuffer.Stats.BufferLength, stalledBuffer.Stats.BufferedBytes);
+        Assert.Equal(capacity, outputs.Snapshot()[0].Stats.BufferedBytes);
         Assert.Equal([1L, 0L], outputs.Snapshot().Select(device => device.Stats.Overflows));
         var actual = new byte[8];
         activeBuffer.Read(actual, 0, actual.Length);
@@ -302,7 +345,11 @@ public class OutputFanOutTests
 
         public WaveFormat OutputWaveFormat => Provider?.WaveFormat ?? Format;
 
-        public float Volume { get; set; }
+        public float Volume
+        {
+            get => 1f;
+            set => throw new InvalidOperationException("An app-only gain must not write player endpoint volume.");
+        }
 
         public event EventHandler<StoppedEventArgs>? PlaybackStopped;
 

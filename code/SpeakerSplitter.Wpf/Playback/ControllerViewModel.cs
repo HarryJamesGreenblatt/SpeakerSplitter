@@ -127,6 +127,8 @@ public sealed class ControllerViewModel : INotifyPropertyChanged, IDisposable
             var endpoints = _listEndpoints();
             var selected = Devices.Where(device => device.IsSelected)
                 .Select(device => device.Endpoint.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var volumes = Devices.ToDictionary(
+                device => device.Endpoint.Id, device => device.AppVolumePercent, StringComparer.OrdinalIgnoreCase);
             foreach (var device in Devices)
             {
                 device.PropertyChanged -= OnSelectionChanged;
@@ -139,6 +141,11 @@ public sealed class ControllerViewModel : INotifyPropertyChanged, IDisposable
                 if (!endpoint.IsDefault && selected.Contains(endpoint.Id))
                 {
                     choice.IsSelected = true;
+                }
+
+                if (!endpoint.IsDefault && volumes.TryGetValue(endpoint.Id, out var volume))
+                {
+                    choice.AppVolumePercent = volume;
                 }
 
                 choice.PropertyChanged += OnSelectionChanged;
@@ -220,11 +227,14 @@ public sealed class ControllerViewModel : INotifyPropertyChanged, IDisposable
         try
         {
             var targets = Devices.Where(device => device.IsSelected).Select(device => device.Endpoint).ToList();
+            var volumes = Devices.Where(device => device.IsSelected).ToDictionary(
+                device => device.Endpoint.Id, device => (float)(device.AppVolumePercent / 100),
+                StringComparer.OrdinalIgnoreCase);
             var session = _createSession();
             _session = session;
             _lossHandler = reason => _postToUi(() => OnLost(session, reason));
             session.Lost += _lossHandler;
-            session.Start(targets);
+            session.Start(targets, volumes);
             Status = $"Mirroring to {targets.Count} additional device(s).";
         }
         catch (Exception exception) when (exception is SplitterStartException or COMException or MmException or AggregateException
@@ -327,6 +337,7 @@ public sealed class ControllerViewModel : INotifyPropertyChanged, IDisposable
         foreach (var device in Devices)
         {
             device.IsLocked = _disposed || _busy || IsRunning || !_devicesAvailable;
+            device.IsVolumeLocked = _disposed || _busy || !_devicesAvailable;
         }
 
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsRunning)));
@@ -343,6 +354,18 @@ public sealed class ControllerViewModel : INotifyPropertyChanged, IDisposable
         if (args.PropertyName == nameof(DeviceChoice.IsSelected))
         {
             NotifyState();
+        }
+        else if (args.PropertyName == nameof(DeviceChoice.AppVolumePercent)
+            && sender is DeviceChoice device && device.IsSelected && _session is { } session)
+        {
+            try
+            {
+                session.SetVolume(device.Endpoint.Id, (float)(device.AppVolumePercent / 100));
+            }
+            catch (Exception exception) when (exception is COMException or InvalidOperationException or ArgumentException)
+            {
+                StopSession($"Could not change app-only volume for {device.Endpoint.FriendlyName}: {exception.Message}. Mirroring stopped.");
+            }
         }
     }
 
