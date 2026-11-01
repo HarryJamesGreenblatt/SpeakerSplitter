@@ -20,6 +20,9 @@ public sealed class DeviceChoice : INotifyPropertyChanged
     /// <summary>Whether startup, shutdown or unavailable endpoints prevent gain changes.</summary>
     private bool _isVolumeLocked;
 
+    /// <summary>The selected endpoint's separately owned device-wide Windows controls.</summary>
+    private DeviceVolumeViewModel? _deviceControl;
+
     #endregion
 
     #region Properties
@@ -40,6 +43,17 @@ public sealed class DeviceChoice : INotifyPropertyChanged
 
     /// <summary>The accessible label identifying this as stream gain, not Windows endpoint volume.</summary>
     public string VolumeLabel => $"App-only volume: {Endpoint.FriendlyName}";
+
+    /// <summary>Device-wide controls while selected, or <see langword="null"/> when unselected.</summary>
+    public DeviceVolumeViewModel? DeviceControl
+    {
+        get => _deviceControl;
+        internal set
+        {
+            _deviceControl = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeviceControl)));
+        }
+    }
 
     /// <summary>App-only gain in percent, retained while this window is open; changes never affect the primary.</summary>
     /// <exception cref="ArgumentOutOfRangeException">The percentage is non-finite or outside 0–100.</exception>

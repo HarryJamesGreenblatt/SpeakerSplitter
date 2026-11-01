@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using SpeakerSplitter.Devices;
 using SpeakerSplitter.App;
 using SpeakerSplitter.App.Playback;
+using SpeakerSplitter.Tests.Devices;
 
 namespace SpeakerSplitter.Tests.Playback;
 
@@ -14,7 +15,7 @@ public class ControllerViewModelTests
     [Fact]
     public void Constructor_ShowsButPreventsSelectingTheDefaultEndpoint()
     {
-        var model = new ControllerViewModel(() => [Primary, Secondary]);
+        var model = CreateModel(() => [Primary, Secondary]);
         var primary = model.Devices[0];
 
         Assert.False(primary.CanSelect);
@@ -30,7 +31,7 @@ public class ControllerViewModelTests
     public void RefreshDevices_WhenDefaultChanges_DisablesTheNewDefault()
     {
         IReadOnlyList<EndpointInfo> current = [Primary, Secondary];
-        var model = new ControllerViewModel(() => current);
+        var model = CreateModel(() => current);
         model.Devices[1].IsSelected = true;
         current = [Primary with { IsDefault = false }, Secondary with { IsDefault = true }];
 
@@ -44,8 +45,8 @@ public class ControllerViewModelTests
     [Fact]
     public void Constructor_ReportsMissingDefaultAndEnumerationFailure()
     {
-        var missing = new ControllerViewModel(() => [Secondary]);
-        var failed = new ControllerViewModel(() => throw new COMException("enumeration failed"));
+        var missing = CreateModel(() => [Secondary]);
+        var failed = CreateModel(() => throw new COMException("enumeration failed"));
 
         Assert.Contains("No default output", missing.Status);
         Assert.Contains("enumeration failed", failed.Status);
@@ -57,7 +58,7 @@ public class ControllerViewModelTests
     public void ToggleCommand_StartsOnlySelectedTargets_LocksSelection_AndCreatesFreshSessions()
     {
         var sessions = new List<FakeSession>();
-        var model = new ControllerViewModel(() => [Primary, Secondary], () =>
+        var model = CreateModel(() => [Primary, Secondary], () =>
         {
             var session = new FakeSession();
             sessions.Add(session);
@@ -87,7 +88,7 @@ public class ControllerViewModelTests
     public void AppVolume_InitializesSelectedStreamsAndRemainsAdjustableWhileRunning()
     {
         var session = new FakeSession();
-        using var model = new ControllerViewModel(() => [Primary, Secondary], () => session);
+        using var model = CreateModel(() => [Primary, Secondary], () => session);
         Assert.False(model.Devices[0].CanAdjustVolume);
         Assert.Throws<InvalidOperationException>(() => model.Devices[0].AppVolumePercent = 50);
         model.Devices[1].IsSelected = true;
@@ -110,7 +111,7 @@ public class ControllerViewModelTests
     public void AppVolume_WhenAGainWriteFails_StopsAndReportsTheAffectedDevice()
     {
         var session = new FakeSession { FailVolume = true };
-        using var model = new ControllerViewModel(() => [Primary, Secondary], () => session);
+        using var model = CreateModel(() => [Primary, Secondary], () => session);
         model.Devices[1].IsSelected = true;
         model.ToggleCommand.Execute(null);
 
@@ -127,7 +128,7 @@ public class ControllerViewModelTests
     public void ToggleCommand_WhenStartFails_ReleasesSessionAndReportsTheFailure()
     {
         var session = new FakeSession { FailStart = true };
-        var model = new ControllerViewModel(() => [Primary, Secondary], () => session);
+        var model = CreateModel(() => [Primary, Secondary], () => session);
         model.Devices[1].IsSelected = true;
 
         model.ToggleCommand.Execute(null);
@@ -147,7 +148,7 @@ public class ControllerViewModelTests
             StartError = new SplitterStartException(
                 StartFailure.TargetsChanged, "Outputs changed.", ["Secondary is no longer active."]),
         };
-        var model = new ControllerViewModel(() => [Primary, Secondary], () => session);
+        var model = CreateModel(() => [Primary, Secondary], () => session);
         model.Devices[1].IsSelected = true;
 
         model.ToggleCommand.Execute(null);
@@ -164,7 +165,7 @@ public class ControllerViewModelTests
         var oldSession = new FakeSession();
         var newSession = new FakeSession();
         var next = oldSession;
-        var model = new ControllerViewModel(() => [Primary, Secondary], () => next, queue.Enqueue);
+        var model = CreateModel(() => [Primary, Secondary], () => next, queue.Enqueue);
         model.Devices[1].IsSelected = true;
         model.ToggleCommand.Execute(null);
 
@@ -189,7 +190,7 @@ public class ControllerViewModelTests
     public void Stop_WhenStopAndDisposeFail_AttemptsBothAndReportsBothErrors()
     {
         var session = new FakeSession { FailStop = true, FailDispose = true };
-        var model = new ControllerViewModel(() => [Primary, Secondary], () => session);
+        var model = CreateModel(() => [Primary, Secondary], () => session);
         model.Devices[1].IsSelected = true;
         model.ToggleCommand.Execute(null);
 
@@ -207,7 +208,7 @@ public class ControllerViewModelTests
     {
         var queue = new Queue<Action>();
         var session = new FakeSession();
-        var model = new ControllerViewModel(() => [Primary, Secondary], () => session, queue.Enqueue);
+        var model = CreateModel(() => [Primary, Secondary], () => session, queue.Enqueue);
         model.Devices[1].IsSelected = true;
         model.ToggleCommand.Execute(null);
         session.RaiseLoss("late loss");
@@ -228,7 +229,7 @@ public class ControllerViewModelTests
     public void Dispose_WhenCleanupFails_ReportsAndRethrowsBothErrors()
     {
         var session = new FakeSession { FailStop = true, FailDispose = true };
-        var model = new ControllerViewModel(() => [Primary, Secondary], () => session);
+        var model = CreateModel(() => [Primary, Secondary], () => session);
         model.Devices[1].IsSelected = true;
         model.ToggleCommand.Execute(null);
 
@@ -248,7 +249,7 @@ public class ControllerViewModelTests
         RunOnUiThread(() =>
         {
             var session = new FakeSession();
-            var model = new ControllerViewModel(() => [Primary, Secondary], () => session);
+            var model = CreateModel(() => [Primary, Secondary], () => session);
             model.Devices[1].IsSelected = true;
             model.ToggleCommand.Execute(null);
             var window = new MainWindow(model);
@@ -266,6 +267,39 @@ public class ControllerViewModelTests
             Assert.Equal(1, session.DisposeCalls);
         });
     }
+
+    [Fact]
+    public void DeviceControls_OpenOnlyForSelectedSecondariesAndSurviveStoppingAudio()
+    {
+        var control = new FakeEndpointVolumeControl();
+        var opened = new List<string>();
+        using var model = CreateModel(() => [Primary, Secondary], () => new FakeSession(),
+            openEndpointControl: id =>
+            {
+                opened.Add(id);
+                return control;
+            });
+        Assert.Empty(opened);
+
+        model.Devices[1].IsSelected = true;
+
+        Assert.Equal([Secondary.Id], opened);
+        Assert.Null(model.Devices[0].DeviceControl);
+        Assert.True(model.Devices[1].DeviceControl!.HasControl);
+        model.ToggleCommand.Execute(null);
+        model.Stop();
+        Assert.Equal(0, control.DisposeCalls);
+        model.Devices[1].IsSelected = false;
+        Assert.Equal(1, control.DisposeCalls);
+        Assert.Null(model.Devices[1].DeviceControl);
+    }
+
+    private static ControllerViewModel CreateModel(
+        Func<IReadOnlyList<EndpointInfo>> listEndpoints,
+        Func<IPlaybackSession>? createSession = null,
+        Action<Action>? postToUi = null,
+        Func<string, IEndpointVolumeControl>? openEndpointControl = null) =>
+        new(listEndpoints, createSession, postToUi, openEndpointControl ?? (_ => new FakeEndpointVolumeControl()));
 
     private static void RunOnUiThread(Action action)
     {

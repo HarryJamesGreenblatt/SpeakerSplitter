@@ -20,6 +20,9 @@ public sealed class ControllerViewModel : INotifyPropertyChanged, IDisposable
     /// <summary>Creates a fresh, owned session for each Start.</summary>
     private readonly Func<IPlaybackSession> _createSession;
 
+    /// <summary>Opens device-wide controls independently of the mirrored audio session.</summary>
+    private readonly Func<string, IEndpointVolumeControl> _openEndpointControl;
+
     /// <summary>Enqueues an action on the UI thread without blocking the calling worker.</summary>
     private readonly Action<Action> _postToUi;
 
@@ -95,13 +98,16 @@ public sealed class ControllerViewModel : INotifyPropertyChanged, IDisposable
     /// <param name="listEndpoints">An endpoint enumerator, or <see langword="null"/> for Windows endpoints.</param>
     /// <param name="createSession">A session factory, or <see langword="null"/> for the shared Core engine.</param>
     /// <param name="postToUi">Enqueues work on the UI thread; <see langword="null"/> uses the creating thread's dispatcher.</param>
+    /// <param name="openEndpointControl">Opens Windows endpoint controls, or <see langword="null"/> for NAudio.</param>
     public ControllerViewModel(
         Func<IReadOnlyList<EndpointInfo>>? listEndpoints = null,
         Func<IPlaybackSession>? createSession = null,
-        Action<Action>? postToUi = null)
+        Action<Action>? postToUi = null,
+        Func<string, IEndpointVolumeControl>? openEndpointControl = null)
     {
         _listEndpoints = listEndpoints ?? EndpointCatalog.ListActive;
         _createSession = createSession ?? (() => new PlaybackSession());
+        _openEndpointControl = openEndpointControl ?? (id => new EndpointVolumeControl(id));
         var dispatcher = Dispatcher.CurrentDispatcher;
         _postToUi = postToUi ?? (action => dispatcher.BeginInvoke(action));
         _toggleCommand = new ControllerCommand(Toggle, CanToggle);
@@ -129,6 +135,7 @@ public sealed class ControllerViewModel : INotifyPropertyChanged, IDisposable
                 .Select(device => device.Endpoint.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var volumes = Devices.ToDictionary(
                 device => device.Endpoint.Id, device => device.AppVolumePercent, StringComparer.OrdinalIgnoreCase);
+            ReleaseDeviceControls();
             foreach (var device in Devices)
             {
                 device.PropertyChanged -= OnSelectionChanged;
@@ -150,6 +157,10 @@ public sealed class ControllerViewModel : INotifyPropertyChanged, IDisposable
 
                 choice.PropertyChanged += OnSelectionChanged;
                 Devices.Add(choice);
+                if (choice.IsSelected)
+                {
+                    OpenDeviceControl(choice);
+                }
             }
 
             _devicesAvailable = true;
@@ -158,7 +169,7 @@ public sealed class ControllerViewModel : INotifyPropertyChanged, IDisposable
                 ? "Select at least one additional output device."
                 : "No default output is available. Choose one in Windows Sound settings, then refresh.";
         }
-        catch (Exception exception) when (exception is COMException or InvalidOperationException)
+        catch (Exception exception) when (exception is COMException or InvalidOperationException or AggregateException)
         {
             _devicesAvailable = false;
             Status = $"Could not list output devices ({exception.GetType().Name}: {exception.Message}).";
@@ -189,7 +200,30 @@ public sealed class ControllerViewModel : INotifyPropertyChanged, IDisposable
         _busy = true;
         try
         {
-            ReleaseSession();
+            List<Exception> errors = [];
+            try
+            {
+                ReleaseSession();
+            }
+            catch (AggregateException exception)
+            {
+                errors.AddRange(exception.Flatten().InnerExceptions);
+            }
+
+            try
+            {
+                ReleaseDeviceControls();
+            }
+            catch (AggregateException exception)
+            {
+                errors.AddRange(exception.Flatten().InnerExceptions);
+            }
+
+            if (errors.Count > 0)
+            {
+                throw new AggregateException("Could not release controller resources.", errors);
+            }
+
             Status = "Stopped.";
         }
         catch (AggregateException exception)
@@ -351,8 +385,24 @@ public sealed class ControllerViewModel : INotifyPropertyChanged, IDisposable
     /// <param name="args">The property that changed.</param>
     private void OnSelectionChanged(object? sender, PropertyChangedEventArgs args)
     {
-        if (args.PropertyName == nameof(DeviceChoice.IsSelected))
+        if (args.PropertyName == nameof(DeviceChoice.IsSelected) && sender is DeviceChoice choice)
         {
+            if (choice.IsSelected)
+            {
+                OpenDeviceControl(choice);
+            }
+            else
+            {
+                try
+                {
+                    CloseDeviceControl(choice);
+                }
+                catch (Exception exception)
+                {
+                    Status = $"Device control cleanup failed for {choice.Endpoint.FriendlyName}: {exception.Message}";
+                }
+            }
+
             NotifyState();
         }
         else if (args.PropertyName == nameof(DeviceChoice.AppVolumePercent)
@@ -366,6 +416,46 @@ public sealed class ControllerViewModel : INotifyPropertyChanged, IDisposable
             {
                 StopSession($"Could not change app-only volume for {device.Endpoint.FriendlyName}: {exception.Message}. Mirroring stopped.");
             }
+        }
+    }
+
+    /// <summary>Opens selected-device controls read-only; device failures remain visible on that row.</summary>
+    /// <param name="device">The selected secondary row.</param>
+    private void OpenDeviceControl(DeviceChoice device)
+    {
+        device.DeviceControl ??= new DeviceVolumeViewModel(
+            device.Endpoint.Id, device.Endpoint.FriendlyName, _openEndpointControl);
+    }
+
+    /// <summary>Releases a deselected device's controls without restoring Windows settings.</summary>
+    /// <param name="device">The row whose control is being released.</param>
+    private static void CloseDeviceControl(DeviceChoice device)
+    {
+        var control = device.DeviceControl;
+        device.DeviceControl = null;
+        control?.Dispose();
+    }
+
+    /// <summary>Attempts to release every device control before reporting any cleanup failures.</summary>
+    /// <exception cref="AggregateException">At least one selected device's controls could not be released.</exception>
+    private void ReleaseDeviceControls()
+    {
+        List<Exception> errors = [];
+        foreach (var device in Devices)
+        {
+            try
+            {
+                CloseDeviceControl(device);
+            }
+            catch (Exception exception)
+            {
+                errors.Add(exception);
+            }
+        }
+
+        if (errors.Count > 0)
+        {
+            throw new AggregateException("Could not release device controls.", errors);
         }
     }
 

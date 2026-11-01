@@ -24,28 +24,51 @@
                     <DataTemplate>
                         <StackPanel Margin="0,6,0,12">
                             <CheckBox Content="{Binding DisplayName}"
-                                  IsChecked="{Binding IsSelected}"
-                                  IsEnabled="{Binding CanSelect}"
-                                  ToolTip="{Binding SelectionHint}"
-                                  ToolTipService.ShowOnDisabled="True"
-                                  AutomationProperties.Name="{Binding DisplayName}" />
-                            <Grid Margin="24,8,0,0"
-                                  Visibility="{Binding IsSelected, Converter={StaticResource SelectedVisibility}}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="48" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="App-only volume" VerticalAlignment="Center" />
-                                <Slider Grid.Column="1" Margin="12,0" Minimum="0" Maximum="100"
-                                        Value="{Binding AppVolumePercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                        IsEnabled="{Binding CanAdjustVolume}"
-                                        TickFrequency="1" IsSnapToTickEnabled="True"
-                                        ToolTip="Adjusts only SpeakerSplitter's stream. Windows device volume and other applications are unchanged."
-                                        AutomationProperties.Name="{Binding VolumeLabel}" />
-                                <TextBlock Grid.Column="2" VerticalAlignment="Center"
-                                           Text="{Binding AppVolumePercent, StringFormat={}{0:0}%}" />
-                            </Grid>
+                                      IsChecked="{Binding IsSelected}"
+                                      IsEnabled="{Binding CanSelect}"
+                                      ToolTip="{Binding SelectionHint}"
+                                      ToolTipService.ShowOnDisabled="True"
+                                      AutomationProperties.Name="{Binding DisplayName}" />
+                            <StackPanel Visibility="{Binding IsSelected, Converter={StaticResource SelectedVisibility}}">
+                                <Grid Margin="24,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="48" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="App-only volume" VerticalAlignment="Center" />
+                                    <Slider Grid.Column="1" Margin="12,0" Minimum="0" Maximum="100"
+                                            Value="{Binding AppVolumePercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            IsEnabled="{Binding CanAdjustVolume}"
+                                            TickFrequency="1" IsSnapToTickEnabled="True"
+                                            ToolTip="Adjusts only SpeakerSplitter's stream. Windows device volume and other applications are unchanged."
+                                            AutomationProperties.Name="{Binding VolumeLabel}" />
+                                    <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                                               Text="{Binding AppVolumePercent, StringFormat={}{0:0}%}" />
+                                </Grid>
+                                <StackPanel DataContext="{Binding DeviceControl}" Margin="24,8,0,0">
+                                    <Grid Visibility="{Binding HasControl, Converter={StaticResource SelectedVisibility}}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="48" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Device volume (Windows)" VerticalAlignment="Center" />
+                                        <Slider Grid.Column="1" Margin="12,0" Minimum="0" Maximum="100"
+                                                Value="{Binding VolumePercent, Mode=OneWay}" IsEnabled="False"
+                                                AutomationProperties.Name="{Binding Name, StringFormat='Device volume: {0}'}" />
+                                        <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                                                   Text="{Binding VolumePercent, StringFormat={}{0:0}%}" />
+                                    </Grid>
+                                    <CheckBox Content="Device mute" Margin="0,8,0,0" IsEnabled="False"
+                                              Visibility="{Binding HasControl, Converter={StaticResource SelectedVisibility}}"
+                                              IsChecked="{Binding Muted, Mode=OneWay}"
+                                              AutomationProperties.Name="{Binding Name, StringFormat='Device mute: {0}'}" />
+                                    <TextBlock Margin="0,6,0,0" Text="{Binding Status}" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <TextBlock Margin="24,6,0,0" TextWrapping="Wrap"
+                                           Text="Device volume/mute affect all apps on this output. App-only volume does not." />
+                            </StackPanel>
                         </StackPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
