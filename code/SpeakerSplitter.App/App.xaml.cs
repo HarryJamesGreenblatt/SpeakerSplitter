@@ -1,6 +1,6 @@
 using System.Windows;
 
-namespace SpeakerSplitter.Wpf;
+namespace SpeakerSplitter.App;
 
 /// <summary>The WPF host; audio processing remains in the shared Core engine.</summary>
 public partial class App : Application

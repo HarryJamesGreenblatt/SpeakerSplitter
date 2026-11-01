@@ -1,8 +1,8 @@
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using SpeakerSplitter.Devices;
-using SpeakerSplitter.Wpf;
-using SpeakerSplitter.Wpf.Playback;
+using SpeakerSplitter.App;
+using SpeakerSplitter.App.Playback;
 
 namespace SpeakerSplitter.Tests.Playback;
 

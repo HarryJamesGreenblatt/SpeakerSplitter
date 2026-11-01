@@ -1,6 +1,6 @@
 using SpeakerSplitter.Devices;
 
-namespace SpeakerSplitter.Wpf.Playback;
+namespace SpeakerSplitter.App.Playback;
 
 /// <summary>A thin adapter over the same engine used by the CLI; no audio processing lives in the shell.</summary>
 public sealed class PlaybackSession : IPlaybackSession

@@ -5,9 +5,9 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using NAudio;
 using SpeakerSplitter.Devices;
-using SpeakerSplitter.Wpf.Devices;
+using SpeakerSplitter.App.Devices;
 
-namespace SpeakerSplitter.Wpf.Playback;
+namespace SpeakerSplitter.App.Playback;
 
 /// <summary>Device selection and session lifecycle on the UI thread; worker notifications are enqueued there.</summary>
 public sealed class ControllerViewModel : INotifyPropertyChanged, IDisposable

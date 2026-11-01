@@ -1,8 +1,8 @@
 using System.ComponentModel;
 using System.Windows;
-using SpeakerSplitter.Wpf.Playback;
+using SpeakerSplitter.App.Playback;
 
-namespace SpeakerSplitter.Wpf;
+namespace SpeakerSplitter.App;
 
 /// <summary>The device-selection window, driven on its dispatcher thread.</summary>
 public partial class MainWindow : Window

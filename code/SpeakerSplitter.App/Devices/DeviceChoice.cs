@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using SpeakerSplitter.Devices;
 
-namespace SpeakerSplitter.Wpf.Devices;
+namespace SpeakerSplitter.App.Devices;
 
 /// <summary>One endpoint's selectable UI state; all access belongs on the UI thread.</summary>
 public sealed class DeviceChoice : INotifyPropertyChanged

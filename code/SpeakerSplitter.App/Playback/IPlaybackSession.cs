@@ -1,6 +1,6 @@
 using SpeakerSplitter.Devices;
 
-namespace SpeakerSplitter.Wpf.Playback;
+namespace SpeakerSplitter.App.Playback;
 
 /// <summary>The shell's session boundary; Start, Stop and Dispose are called on the same UI thread.</summary>
 public interface IPlaybackSession : IDisposable

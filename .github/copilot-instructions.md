@@ -1,6 +1,6 @@
 # SpeakerSplitter Instructions
 
-Project: SpeakerSplitter, a Windows command-line and WPF app (C#, .NET, NAudio/WASAPI) that mirrors system audio to additional playback devices.
+Project: SpeakerSplitter, a Windows command-line and desktop app (C#, .NET, NAudio/WASAPI, currently WPF) that mirrors system audio to additional playback devices.
 
 Shared ADO, work item, git, commit and PR conventions live in the workspace-level `.github/copilot-instructions.md` (the `sequitur-scrum` workspace folder, one level above this repo). They apply here; this file only adds SpeakerSplitter specifics.
 
@@ -19,10 +19,11 @@ Shared ADO, work item, git, commit and PR conventions live in the workspace-leve
 ## Code Layout
 
 - Source in `code/`, tests in `tests/`, solution `SpeakerSplitter.sln`.
-- `SpeakerSplitter.Core` is the UI-free engine (`SplitterEngine`); it must not reference `System.Console` or any UI framework (enforced by `CoreIsolationTests`). The command-line host (`SpeakerSplitter.CLI`) and the planned WPF app are thin hosts over it.
+- `SpeakerSplitter.Core` is the UI-free engine (`SplitterEngine`); it must not reference `System.Console` or any UI framework (enforced by `CoreIsolationTests`). The command-line host (`SpeakerSplitter.CLI`) and desktop host (`SpeakerSplitter.App`) are thin hosts over it.
 - Organize by feature area, as HARK does (`Hark.Core.Output`), not by kind of type: one folder per feature, and the namespace equals the folder path (`SpeakerSplitter.Output`). No `Models`, `Services`, `Utilities` or `Interfaces` folders; an interface sits beside its implementation. New code goes in the folder for its feature, and a new feature gets a new folder rather than a catch-all.
 - `SpeakerSplitter.Core`: `Devices/` (endpoint listing, mix formats, default-output watcher), `Capture/` (loopback source, peak and level metering), `Output/` (fan-out, per-device buffers, format conversion). `SplitterEngine` and `SplitterStartException` stay at the project root.
 - `SpeakerSplitter.CLI`: `Input/` (command line, device selection) and `Display/` (endpoint table, fill log, meter bar); `Program.cs` stays at the root.
+- `SpeakerSplitter.App`: `Devices/` (device selection and per-device UI state) and `Playback/` (controller and engine lifecycle adapter); `App.xaml` and `MainWindow.xaml` stay at the root. The project, executable and namespaces use `App`, not a UI-framework suffix. WPF is the current implementation; a future UI migration must preserve the framework-neutral host identity and UI-free Core boundary.
 - Tests mirror the source folders and namespaces (`SpeakerSplitter.Tests.Output`); the engine and isolation tests sit at the test root beside the engine.
 - Shared build settings in `Directory.Build.props` (net10.0-windows, nullable, warnings as errors).
 - Design rule: capture the DEFAULT render endpoint (WASAPI loopback) and only play to OTHER endpoints; never use the capture endpoint as an output.

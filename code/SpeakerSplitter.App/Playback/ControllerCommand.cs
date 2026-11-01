@@ -1,6 +1,6 @@
 using System.Windows.Input;
 
-namespace SpeakerSplitter.Wpf.Playback;
+namespace SpeakerSplitter.App.Playback;
 
 /// <summary>A controller action whose availability is explicitly updated on the UI thread.</summary>
 internal sealed class ControllerCommand : ICommand
