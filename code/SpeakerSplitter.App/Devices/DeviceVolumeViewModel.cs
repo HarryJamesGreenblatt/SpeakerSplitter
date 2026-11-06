@@ -31,11 +31,60 @@ public sealed class DeviceVolumeViewModel : INotifyPropertyChanged, IDisposable
     /// <summary>Whether settings were read successfully; unavailable values are hidden behind a visible error.</summary>
     public bool HasControl => !_disposed && _control is not null && _state is not null;
 
-    /// <summary>The last read Windows volume percentage; displayed only when <see cref="HasControl"/> is true.</summary>
-    public double VolumePercent => _state is { } state ? state.Volume * 100d : 0d;
+    /// <summary>Windows device-wide volume percentage, updated only from successful native readbacks.</summary>
+    public double VolumePercent
+    {
+        get => _state is { } state ? state.Volume * 100d : 0d;
+        set
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            var control = _control ?? throw new InvalidOperationException("Device controls are unavailable.");
+            if (!double.IsFinite(value) || value < 0 || value > 100)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Device volume must be between 0 and 100.");
+            }
 
-    /// <summary>The last read device mute state; displayed only when <see cref="HasControl"/> is true.</summary>
-    public bool Muted => _state?.Muted ?? false;
+            if (value == VolumePercent)
+            {
+                return;
+            }
+
+            try
+            {
+                ApplyState(control.SetVolume((float)(value / 100)));
+            }
+            catch (Exception exception) when (exception is COMException or InvalidOperationException
+                or ArgumentException or UnauthorizedAccessException)
+            {
+                Fail(exception);
+            }
+        }
+    }
+
+    /// <summary>Windows device-wide mute, updated only from successful native readbacks.</summary>
+    public bool Muted
+    {
+        get => _state?.Muted ?? false;
+        set
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            var control = _control ?? throw new InvalidOperationException("Device controls are unavailable.");
+            if (value == Muted)
+            {
+                return;
+            }
+
+            try
+            {
+                ApplyState(control.SetMute(value));
+            }
+            catch (Exception exception) when (exception is COMException or InvalidOperationException
+                or ArgumentException or UnauthorizedAccessException)
+            {
+                Fail(exception);
+            }
+        }
+    }
 
     /// <summary>A visible failure message instead of a success-shaped fallback for unavailable device controls.</summary>
     public string Status

@@ -294,6 +294,28 @@ public class ControllerViewModelTests
         Assert.Null(model.Devices[1].DeviceControl);
     }
 
+    [Fact]
+    public void WindowShow_DoesNotWriteDeviceSettingsWhileBindingFractionalWindowsVolume()
+    {
+        RunOnUiThread(() =>
+        {
+            var control = new FakeEndpointVolumeControl
+            {
+                State = new EndpointVolumeState(0.635f, true, false, true),
+            };
+            using var model = CreateModel(() => [Primary, Secondary], openEndpointControl: _ => control);
+            model.Devices[1].IsSelected = true;
+            var window = new MainWindow(model);
+
+            window.Show();
+            window.UpdateLayout();
+
+            Assert.Equal(0, control.VolumeWrites);
+            Assert.Equal(0, control.MuteWrites);
+            window.Close();
+        });
+    }
+
     private static ControllerViewModel CreateModel(
         Func<IReadOnlyList<EndpointInfo>> listEndpoints,
         Func<IPlaybackSession>? createSession = null,

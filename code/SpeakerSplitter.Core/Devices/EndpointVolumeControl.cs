@@ -16,6 +16,9 @@ public sealed class EndpointVolumeControl : IEndpointVolumeControl
     /// <summary>The opened endpoint, or <see langword="null"/> if construction failed before it opened.</summary>
     private readonly MMDevice? _device;
 
+    /// <summary>Identifies writes from this control instance in Windows notifications.</summary>
+    private readonly Guid _notificationGuid = Guid.NewGuid();
+
     /// <summary>Non-zero once native control release has begun.</summary>
     private int _disposed;
 
@@ -59,14 +62,7 @@ public sealed class EndpointVolumeControl : IEndpointVolumeControl
     /// <inheritdoc />
     public EndpointVolumeState GetState()
     {
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
-        var device = _device ?? throw new InvalidOperationException("The endpoint is not open.");
-        if (device.DataFlow != DataFlow.Render || device.State != DeviceState.Active)
-        {
-            throw new InvalidOperationException("The selected render endpoint is no longer active.");
-        }
-
-        var control = device.AudioEndpointVolume;
+        var control = GetControl();
         var volume = control.MasterVolumeLevelScalar;
         if (!float.IsFinite(volume) || volume < 0 || volume > 1)
         {
@@ -77,6 +73,33 @@ public sealed class EndpointVolumeControl : IEndpointVolumeControl
         return new EndpointVolumeState(volume, control.Mute,
             (support & EEndpointHardwareSupport.Volume) != 0,
             (support & EEndpointHardwareSupport.Mute) != 0);
+    }
+
+    /// <inheritdoc />
+    public EndpointVolumeState SetVolume(float volume)
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        if (!float.IsFinite(volume) || volume < 0 || volume > 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(volume), volume, "Windows volume must be between 0 and 1.");
+        }
+
+        EnsureSecondary();
+        var control = GetControl();
+        control.NotificationGuid = _notificationGuid;
+        control.MasterVolumeLevelScalar = volume;
+        return GetState();
+    }
+
+    /// <inheritdoc />
+    public EndpointVolumeState SetMute(bool muted)
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        EnsureSecondary();
+        var control = GetControl();
+        control.NotificationGuid = _notificationGuid;
+        control.Mute = muted;
+        return GetState();
     }
 
     /// <summary>Releases the NAudio-owned volume callback and enumerator without restoring endpoint settings.</summary>
@@ -123,6 +146,19 @@ public sealed class EndpointVolumeControl : IEndpointVolumeControl
         {
             throw new InvalidOperationException("The current default output cannot be controlled as a secondary device.");
         }
+    }
+
+    /// <summary>Resolves the existing volume interface and rejects disposed or inactive endpoints.</summary>
+    private AudioEndpointVolume GetControl()
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        var device = _device ?? throw new InvalidOperationException("The endpoint is not open.");
+        if (device.DataFlow != DataFlow.Render || device.State != DeviceState.Active)
+        {
+            throw new InvalidOperationException("The selected render endpoint is no longer active.");
+        }
+
+        return device.AudioEndpointVolume;
     }
 
     #endregion
